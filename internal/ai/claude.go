@@ -695,6 +695,81 @@ func (c *ClaudeClient) GenerateWeeklyReport(tasks []map[string]interface{}) (str
 	return c.extractText(resp), nil
 }
 
+// GetProactiveSuggestions analyzes tasks and returns proactive suggestions.
+func (c *ClaudeClient) GetProactiveSuggestions(tasks []map[string]interface{}, projectName string) (string, error) {
+	taskJSON, err := json.MarshalIndent(tasks, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal tasks: %w", err)
+	}
+
+	prompt := fmt.Sprintf(`基于项目「%s」的当前任务状态，给出 3-5 条简短的工作建议。
+
+分析维度：
+- 逾期未完成的任务（需要立即处理）
+- 今日到期的任务
+- 超过 3 天未更新的进行中任务（可能被遗忘）
+- 优先级调整建议
+
+每条建议用一行，格式：「emoji 建议内容」。简洁有力，不要废话。
+如果一切正常，就说"一切顺利"并给出鼓励。
+
+当前任务数据：
+%s`, projectName, string(taskJSON))
+
+	req := apiRequest{
+		Model:     c.model,
+		MaxTokens: 512,
+		Messages:  []apiMessage{{Role: "user", Content: prompt}},
+	}
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return "", err
+	}
+	return c.extractText(resp), nil
+}
+
+// AutoTagTask uses AI to generate tags for a task.
+func (c *ClaudeClient) AutoTagTask(title, description string, existingTags []string) ([]string, error) {
+	tagsContext := ""
+	if len(existingTags) > 0 {
+		tagsJSON, _ := json.Marshal(existingTags)
+		tagsContext = fmt.Sprintf("\n项目中已有的标签（尽量复用）：%s", string(tagsJSON))
+	}
+
+	prompt := fmt.Sprintf(`为以下任务生成 1-3 个简短的中文标签。
+标签应反映任务的类别或领域（如"前端"、"设计"、"修复"、"文档"等）。
+仅返回标签，用逗号分隔，不要其他内容。%s
+
+任务标题：%s
+任务描述：%s`, tagsContext, title, description)
+
+	req := apiRequest{
+		Model:     c.model,
+		MaxTokens: 64,
+		Messages:  []apiMessage{{Role: "user", Content: prompt}},
+	}
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	text := strings.TrimSpace(c.extractText(resp))
+	if text == "" {
+		return nil, nil
+	}
+
+	var tags []string
+	for _, t := range strings.Split(text, ",") {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			tags = append(tags, t)
+		}
+	}
+	return tags, nil
+}
+
 // TestConnection tests if the API configuration is working.
 func (c *ClaudeClient) TestConnection() error {
 	req := apiRequest{
