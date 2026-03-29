@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"log"
+	"path/filepath"
 	"runtime"
 
 	"taskpilot/internal/core"
@@ -32,6 +33,7 @@ func main() {
 		Core:            appCore,
 		OnConfigChanged: aiSvc.ReloadClient,
 	}
+	logSvc := &services.LogService{LogDir: filepath.Join(appCore.DataDir, "logs")}
 
 	// Initialize AI client from stored config.
 	aiSvc.ReloadClient()
@@ -45,6 +47,7 @@ func main() {
 			application.NewService(taskSvc),
 			application.NewService(aiSvc),
 			application.NewService(configSvc),
+			application.NewService(logSvc),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -112,6 +115,11 @@ func main() {
 	// ── Application Menu ────────────────────────────────────────────────
 	appMenu := app.NewMenu()
 
+	// macOS 必须：添加标准应用菜单，否则菜单栏无法正确注册，所有快捷键失效。
+	if runtime.GOOS == "darwin" {
+		appMenu.AddRole(application.AppMenu)
+	}
+
 	fileMenu := appMenu.AddSubmenu("文件")
 	fileMenu.Add("快速添加任务").
 		SetAccelerator("CmdOrCtrl+Shift+N").
@@ -143,6 +151,24 @@ func main() {
 		})
 
 	app.Menu.SetApplicationMenu(appMenu)
+
+	// ── Shortcut Events from Frontend ───────────────────────────────────
+	app.Event.On("shortcut:action", func(e *application.CustomEvent) {
+		actionId, ok := e.Data.(string)
+		if !ok {
+			return
+		}
+		switch actionId {
+		case "task.quickAdd":
+			quickAddWindow.Center()
+			quickAddWindow.Show()
+			quickAddWindow.Focus()
+		case "ai.chatWindow":
+			chatWindow.Center()
+			chatWindow.Show()
+			chatWindow.Focus()
+		}
+	})
 
 	// ── System Tray ─────────────────────────────────────────────────────
 	systray := app.SystemTray.New()

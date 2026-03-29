@@ -26,6 +26,7 @@ export interface ChatMessage {
   content: string
   toolResults?: { action: string; success: boolean; message: string }[]
   timestamp: number
+  isError?: boolean
 }
 
 interface AppState {
@@ -35,7 +36,7 @@ interface AppState {
   // 任务
   tasks: Task[]
   // 视图
-  currentView: 'project' | 'today' | 'settings'
+  currentView: 'project' | 'today' | 'settings' | 'logs'
   // AI 面板
   showChatPanel: boolean
   chatMessages: ChatMessage[]
@@ -43,7 +44,7 @@ interface AppState {
   setProjects: (projects: Project[]) => void
   setSelectedProjectId: (id: string | null) => void
   setTasks: (tasks: Task[]) => void
-  setCurrentView: (view: 'project' | 'today' | 'settings') => void
+  setCurrentView: (view: 'project' | 'today' | 'settings' | 'logs') => void
   toggleChatPanel: () => void
   addChatMessage: (msg: ChatMessage) => void
   clearChatMessages: () => void

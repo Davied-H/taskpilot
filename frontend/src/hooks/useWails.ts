@@ -104,6 +104,32 @@ export async function generateWeeklyReport(): Promise<string> {
   return await AIService.GenerateWeeklyReport()
 }
 
+// ---- 日志相关 ----
+
+import { LogService } from '../../bindings/taskpilot/services'
+import type { LogFileInfo } from '../../bindings/taskpilot/services/models'
+export type { LogFileInfo }
+
+export async function getLogFiles(): Promise<LogFileInfo[]> {
+  return await LogService.GetLogFiles()
+}
+
+export async function exportLogs(filename: string): Promise<void> {
+  await LogService.ExportLogs(filename)
+}
+
+export async function openLogDir(): Promise<void> {
+  await LogService.OpenLogDir()
+}
+
+export async function getLogContent(filename: string, tailLines: number): Promise<string> {
+  return await LogService.GetLogContent(filename, tailLines)
+}
+
+export async function clearOldLogs(days: number): Promise<number> {
+  return await LogService.ClearOldLogs(days)
+}
+
 // ---- 设置相关 ----
 
 export interface AIConfigData {
@@ -131,4 +157,14 @@ export async function saveAIConfig(apiKey: string, baseURL: string, model: strin
 
 export async function testAIConnection(): Promise<void> {
   await AIService.TestAIConnection()
+}
+
+// ---- 快捷键配置 ----
+
+export async function getShortcutConfig(): Promise<string> {
+  return await ConfigService.GetConfig('keyboard_shortcuts')
+}
+
+export async function saveShortcutConfig(json: string): Promise<void> {
+  await ConfigService.SetConfig('keyboard_shortcuts', json)
 }

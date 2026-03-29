@@ -6,6 +6,7 @@ import (
 
 	"taskpilot/internal/ai"
 	"taskpilot/internal/core"
+	"taskpilot/internal/logger"
 	"taskpilot/internal/model"
 )
 
@@ -36,6 +37,7 @@ func (s *AIService) ReloadClient() {
 	modelName, _ := s.Core.ConfigStore.Get("api_model")
 	if apiKey != "" {
 		s.aiClient = ai.NewClaudeClient(apiKey, baseURL, modelName)
+		logger.Log.Info("AI client reloaded", "model", modelName, "baseURL", baseURL)
 	}
 }
 
@@ -43,6 +45,8 @@ func (s *AIService) ChatWithAI(message string) (*ChatResponse, error) {
 	if s.aiClient == nil {
 		return nil, fmt.Errorf("AI 未配置 – 请先在设置中配置 API Key")
 	}
+
+	logger.Log.Info("chat request", "messageLen", len(message))
 
 	tasks, err := s.Core.TaskStore.ListAll()
 	if err != nil {
@@ -57,8 +61,11 @@ func (s *AIService) ChatWithAI(message string) (*ChatResponse, error) {
 
 	text, toolCalls, err := s.aiClient.Chat(s.chatHistory, string(taskJSON))
 	if err != nil {
+		logger.Log.Error("chat failed", "error", err)
 		return nil, fmt.Errorf("AI 对话失败: %w", err)
 	}
+
+	logger.Log.Info("chat response", "textLen", len(text), "toolCalls", len(toolCalls))
 
 	s.chatHistory = append(s.chatHistory, ai.ChatMessage{
 		Role:    "assistant",
@@ -77,6 +84,8 @@ func (s *AIService) ChatWithAI(message string) (*ChatResponse, error) {
 }
 
 func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
+	logger.Log.Info("executing tool call", "tool", tc.Name)
+
 	getStr := func(key string) string {
 		if v, ok := tc.Input[key]; ok {
 			if str, ok := v.(string); ok {
@@ -94,6 +103,8 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 		return 0
 	}
 
+	var result ToolCallResult
+
 	switch tc.Name {
 	case "create_task":
 		title := getStr("title")
@@ -105,39 +116,43 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 			Status:    "todo",
 		})
 		if err != nil {
-			return ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+			result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+		} else {
+			result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已创建", title)}
 		}
-		return ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已创建", title)}
 
 	case "update_task":
 		id := getStr("id")
 		existing, err := s.Core.TaskStore.GetByID(id)
 		if err != nil {
-			return ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+			result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+		} else {
+			if str := getStr("title"); str != "" {
+				existing.Title = str
+			}
+			if str := getStr("status"); str != "" {
+				existing.Status = str
+			}
+			if _, ok := tc.Input["priority"]; ok {
+				existing.Priority = getInt("priority")
+			}
+			if str := getStr("dueDate"); str != "" {
+				existing.DueDate = str
+			}
+			if err := s.Core.TaskStore.Update(*existing); err != nil {
+				result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+			} else {
+				result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已更新", id)}
+			}
 		}
-		if str := getStr("title"); str != "" {
-			existing.Title = str
-		}
-		if str := getStr("status"); str != "" {
-			existing.Status = str
-		}
-		if _, ok := tc.Input["priority"]; ok {
-			existing.Priority = getInt("priority")
-		}
-		if str := getStr("dueDate"); str != "" {
-			existing.DueDate = str
-		}
-		if err := s.Core.TaskStore.Update(*existing); err != nil {
-			return ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
-		}
-		return ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已更新", id)}
 
 	case "delete_task":
 		id := getStr("id")
 		if err := s.Core.TaskStore.Delete(id); err != nil {
-			return ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+			result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+		} else {
+			result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已删除", id)}
 		}
-		return ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已删除", id)}
 
 	case "list_tasks":
 		var tasks []model.Task
@@ -150,30 +165,42 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 			tasks, err = s.Core.TaskStore.ListAll()
 		}
 		if err != nil {
-			return ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+			result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
+		} else {
+			result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("找到 %d 个任务", len(tasks))}
 		}
-		return ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("找到 %d 个任务", len(tasks))}
 
 	default:
-		return ToolCallResult{Action: tc.Name, Success: false, Message: fmt.Sprintf("unknown action: %s", tc.Name)}
+		result = ToolCallResult{Action: tc.Name, Success: false, Message: fmt.Sprintf("unknown action: %s", tc.Name)}
 	}
+
+	logger.Log.Info("tool call result", "tool", tc.Name, "success", result.Success, "message", result.Message)
+	return result
 }
 
 func (s *AIService) GetDailySummary() (string, error) {
 	if s.aiClient == nil {
 		return "", fmt.Errorf("AI 未配置 – 请先在设置中配置 API Key")
 	}
+	logger.Log.Info("generating daily summary")
 	tasks, err := s.Core.TaskStore.ListTodayTasks()
 	if err != nil {
 		return "", fmt.Errorf("could not fetch today's tasks: %w", err)
 	}
-	return s.aiClient.GenerateDailySummary(tasksToMaps(tasks))
+	result, err := s.aiClient.GenerateDailySummary(tasksToMaps(tasks))
+	if err != nil {
+		logger.Log.Error("daily summary failed", "error", err)
+		return "", err
+	}
+	logger.Log.Info("daily summary generated", "resultLen", len(result))
+	return result, nil
 }
 
 func (s *AIService) SmartSuggestTasks(projectId string) (string, error) {
 	if s.aiClient == nil {
 		return "", fmt.Errorf("AI 未配置 – 请先在设置中配置 API Key")
 	}
+	logger.Log.Info("smart suggest tasks", "projectId", projectId)
 	tasks, err := s.Core.TaskStore.ListByProject(projectId)
 	if err != nil {
 		return "", err
@@ -189,25 +216,39 @@ func (s *AIService) SmartSuggestTasks(projectId string) (string, error) {
 			break
 		}
 	}
-	return s.aiClient.SmartSuggest(tasksToMaps(tasks), projectName)
+	result, err := s.aiClient.SmartSuggest(tasksToMaps(tasks), projectName)
+	if err != nil {
+		logger.Log.Error("smart suggest failed", "error", err)
+		return "", err
+	}
+	logger.Log.Info("smart suggest completed", "projectName", projectName)
+	return result, nil
 }
 
 func (s *AIService) DecomposeTask(taskId string) (string, error) {
 	if s.aiClient == nil {
 		return "", fmt.Errorf("AI 未配置 – 请先在设置中配置 API Key")
 	}
+	logger.Log.Info("decompose task", "taskId", taskId)
 	task, err := s.Core.TaskStore.GetByID(taskId)
 	if err != nil {
 		return "", err
 	}
 	allTasks, _ := s.Core.TaskStore.ListByProject(task.ProjectID)
-	return s.aiClient.DecomposeTask(task.Title, task.Description, tasksToMaps(allTasks))
+	result, err := s.aiClient.DecomposeTask(task.Title, task.Description, tasksToMaps(allTasks))
+	if err != nil {
+		logger.Log.Error("decompose task failed", "taskId", taskId, "error", err)
+		return "", err
+	}
+	logger.Log.Info("decompose task completed", "taskId", taskId)
+	return result, nil
 }
 
 func (s *AIService) PrioritizeTasks(projectId string) (string, error) {
 	if s.aiClient == nil {
 		return "", fmt.Errorf("AI 未配置 – 请先在设置中配置 API Key")
 	}
+	logger.Log.Info("prioritize tasks", "projectId", projectId)
 	var tasks []model.Task
 	var err error
 	if projectId != "" {
@@ -218,18 +259,31 @@ func (s *AIService) PrioritizeTasks(projectId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return s.aiClient.PrioritizeTasks(tasksToMaps(tasks))
+	result, err := s.aiClient.PrioritizeTasks(tasksToMaps(tasks))
+	if err != nil {
+		logger.Log.Error("prioritize tasks failed", "error", err)
+		return "", err
+	}
+	logger.Log.Info("prioritize tasks completed", "taskCount", len(tasks))
+	return result, nil
 }
 
 func (s *AIService) GenerateWeeklyReport() (string, error) {
 	if s.aiClient == nil {
 		return "", fmt.Errorf("AI 未配置 – 请先在设置中配置 API Key")
 	}
+	logger.Log.Info("generating weekly report")
 	tasks, err := s.Core.TaskStore.ListAll()
 	if err != nil {
 		return "", err
 	}
-	return s.aiClient.GenerateWeeklyReport(tasksToMaps(tasks))
+	result, err := s.aiClient.GenerateWeeklyReport(tasksToMaps(tasks))
+	if err != nil {
+		logger.Log.Error("weekly report failed", "error", err)
+		return "", err
+	}
+	logger.Log.Info("weekly report generated", "resultLen", len(result))
+	return result, nil
 }
 
 func (s *AIService) TestAIConnection() error {

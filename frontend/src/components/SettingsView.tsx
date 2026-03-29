@@ -26,6 +26,7 @@ const FiLayers = _FiLayers as unknown as FiIcon
 const FiTarget = _FiTarget as unknown as FiIcon
 const FiTrash2 = _FiTrash2 as unknown as FiIcon
 import { getAIConfig, saveAIConfig, testAIConnection } from '../hooks/useWails'
+import ShortcutSettings from './ShortcutSettings'
 
 const MODEL_OPTIONS = [
   { value: '', label: '默认 (Claude Sonnet)' },
@@ -107,9 +108,11 @@ export default function SettingsView() {
       await saveAIConfig(apiKey.trim(), baseURL.trim(), getEffectiveModel())
       await testAIConnection()
       setTestResult('success')
+      setTimeout(() => setTestResult(null), 5000)
     } catch (err: any) {
       setTestResult('error')
       setTestError(err?.message || String(err) || '连接失败')
+      setTimeout(() => { setTestResult(null); setTestError('') }, 8000)
     } finally {
       setTesting(false)
     }
@@ -304,9 +307,12 @@ export default function SettingsView() {
             </div>
           </motion.section>
 
+          {/* 键盘快捷键 */}
+          <ShortcutSettings sectionIndex={2} />
+
           {/* 关于 */}
           <motion.section
-            custom={2}
+            custom={3}
             initial="hidden"
             animate="visible"
             variants={sectionVariants}

@@ -24,12 +24,26 @@ export function GetAPIKey(): $CancellablePromise<string> {
     return $Call.ByID(3594034821);
 }
 
+/**
+ * GetConfig returns a raw config value by key.
+ */
+export function GetConfig(key: string): $CancellablePromise<string> {
+    return $Call.ByID(3463536948, key);
+}
+
 export function SaveAIConfig(apiKey: string, baseURL: string, modelName: string): $CancellablePromise<void> {
     return $Call.ByID(199356151, apiKey, baseURL, modelName);
 }
 
 export function SaveAPIKey(key: string): $CancellablePromise<void> {
     return $Call.ByID(4111962512, key);
+}
+
+/**
+ * SetConfig sets a raw config value by key.
+ */
+export function SetConfig(key: string, value: string): $CancellablePromise<void> {
+    return $Call.ByID(2251701264, key, value);
 }
 
 export function TestAIConnection(): $CancellablePromise<void> {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"taskpilot/internal/logger"
 	"taskpilot/internal/store"
 )
 
@@ -14,6 +15,7 @@ type AppCore struct {
 	ProjectStore *store.ProjectStore
 	TaskStore    *store.TaskStore
 	ConfigStore  *store.ConfigStore
+	DataDir      string
 }
 
 // NewAppCore initializes the database and all stores.
@@ -27,15 +29,22 @@ func NewAppCore() (*AppCore, error) {
 		return nil, fmt.Errorf("could not create data dir: %w", err)
 	}
 
+	if err := logger.Init(dataDir); err != nil {
+		return nil, fmt.Errorf("could not init logger: %w", err)
+	}
+	logger.Log.Info("TaskPilot starting", "dataDir", dataDir)
+
 	db, err := store.NewDB(filepath.Join(dataDir, "data.db"))
 	if err != nil {
 		return nil, fmt.Errorf("could not open database: %w", err)
 	}
+	logger.Log.Info("database opened")
 
 	return &AppCore{
 		DB:           db,
 		ProjectStore: store.NewProjectStore(db),
 		TaskStore:    store.NewTaskStore(db),
 		ConfigStore:  store.NewConfigStore(db),
+		DataDir:      dataDir,
 	}, nil
 }

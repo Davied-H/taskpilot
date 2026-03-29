@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Plus } from 'lucide-react'
 import { FiCheckCircle as _FiCheckCircle, FiZap as _FiZap, FiTarget as _FiTarget } from 'react-icons/fi'
 type FiIcon = React.FC<{ size?: number; className?: string }>
@@ -47,14 +47,27 @@ export default function TaskList() {
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
   const [aiResult, setAiResult] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const project = projects.find(p => p.id === selectedProjectId)
   const projectTasks = tasks.filter(t => t.projectId === selectedProjectId)
+
+  const countByStatus: Record<StatusFilter, number> = {
+    all: projectTasks.length,
+    todo: projectTasks.filter(t => t.status === 'todo').length,
+    doing: projectTasks.filter(t => t.status === 'doing').length,
+    done: projectTasks.filter(t => t.status === 'done').length,
+  }
   const filteredTasks = statusFilter === 'all' ? projectTasks : projectTasks.filter(t => t.status === statusFilter)
   const sortedTasks = sortTasks(filteredTasks, sortBy)
 
   const handleEdit = (task: Task) => { setEditingTask(task); setShowForm(true) }
   const handleCloseForm = () => { setShowForm(false); setEditingTask(undefined) }
+  const handleFormSave = () => {
+    handleCloseForm()
+    setShowSuccess(true)
+    setTimeout(() => setShowSuccess(false), 2000)
+  }
 
   const handleSmartSuggest = async () => {
     if (!selectedProjectId) return
@@ -105,13 +118,18 @@ export default function TaskList() {
             <button
               key={f.value}
               onClick={() => setStatusFilter(f.value)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                 statusFilter === f.value
                   ? 'bg-white text-stone-800 shadow-sm'
                   : 'text-stone-500 hover:text-stone-700'
               }`}
             >
               {f.label}
+              {countByStatus[f.value] > 0 && (
+                <span className={`text-[10px] font-normal ${statusFilter === f.value ? 'text-stone-400' : 'text-stone-400'}`}>
+                  {countByStatus[f.value]}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -195,7 +213,23 @@ export default function TaskList() {
         )}
       </div>
 
-      {showForm && <TaskForm task={editingTask} onClose={handleCloseForm} onSave={handleCloseForm} />}
+      <AnimatePresence>
+        {showForm && <TaskForm key="task-form" task={editingTask} onClose={handleCloseForm} onSave={handleFormSave} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 bg-emerald-500 text-white text-xs font-medium rounded-full shadow-lg pointer-events-none"
+          >
+            ✓ 任务已保存
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

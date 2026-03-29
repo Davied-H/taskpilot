@@ -2,6 +2,7 @@ package services
 
 import (
 	"taskpilot/internal/core"
+	"taskpilot/internal/logger"
 )
 
 // AIConfig holds the AI configuration.
@@ -43,6 +44,7 @@ func (s *ConfigService) GetAIConfig() (*AIConfig, error) {
 }
 
 func (s *ConfigService) SaveAIConfig(apiKey, baseURL, modelName string) error {
+	logger.Log.Info("saving AI config", "baseURL", baseURL, "model", modelName)
 	if err := s.Core.ConfigStore.Set("api_key", apiKey); err != nil {
 		return err
 	}
@@ -56,6 +58,16 @@ func (s *ConfigService) SaveAIConfig(apiKey, baseURL, modelName string) error {
 		s.OnConfigChanged()
 	}
 	return nil
+}
+
+// GetConfig returns a raw config value by key.
+func (s *ConfigService) GetConfig(key string) (string, error) {
+	return s.Core.ConfigStore.Get(key)
+}
+
+// SetConfig sets a raw config value by key.
+func (s *ConfigService) SetConfig(key, value string) error {
+	return s.Core.ConfigStore.Set(key, value)
 }
 
 func (s *ConfigService) TestAIConnection() error {

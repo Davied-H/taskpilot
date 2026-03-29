@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Circle, CheckCircle2, Pencil, Trash2, Clock } from 'lucide-react'
 import { FiGitBranch as _FiGitBranch } from 'react-icons/fi'
@@ -40,6 +40,8 @@ export default function TaskItem({ task, onEdit }: TaskItemProps) {
   const [hovered, setHovered] = useState(false)
   const [decomposing, setDecomposing] = useState(false)
   const [decomposition, setDecomposition] = useState<string | null>(null)
+  const [deleteConfirming, setDeleteConfirming] = useState(false)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { tasks, setTasks, projects } = useAppStore()
 
   const project = projects.find(p => p.id === task.projectId)
@@ -56,13 +58,17 @@ export default function TaskItem({ task, onEdit }: TaskItemProps) {
     }
   }
 
-  const handleDelete = async () => {
-    try {
-      await deleteTaskAPI(task.id)
-      setTasks(tasks.filter(t => t.id !== task.id))
-    } catch (err) {
-      console.error('Failed to delete task:', err)
+  const handleDeleteClick = () => {
+    if (!deleteConfirming) {
+      setDeleteConfirming(true)
+      deleteTimerRef.current = setTimeout(() => setDeleteConfirming(false), 3000)
+      return
     }
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    setDeleteConfirming(false)
+    deleteTaskAPI(task.id)
+      .then(() => setTasks(tasks.filter(t => t.id !== task.id)))
+      .catch(err => console.error('Failed to delete task:', err))
   }
 
   const handleDecompose = async () => {
@@ -82,11 +88,19 @@ export default function TaskItem({ task, onEdit }: TaskItemProps) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <button onClick={cycleStatus} className="flex-shrink-0 text-stone-300 hover:text-emerald-500 transition-colors">
+        <button
+          onClick={cycleStatus}
+          title={task.status === 'todo' ? '标记为进行中' : task.status === 'doing' ? '标记为已完成' : '重置为待办'}
+          className={`flex-shrink-0 transition-colors ${
+            task.status === 'todo' ? 'text-stone-300 hover:text-blue-400' :
+            task.status === 'doing' ? 'text-blue-400 hover:text-emerald-500' :
+            'text-emerald-500 hover:text-stone-400'
+          }`}
+        >
           {task.status === 'done' ? (
-            <CheckCircle2 size={20} className="text-emerald-500" />
+            <CheckCircle2 size={20} />
           ) : task.status === 'doing' ? (
-            <Circle size={20} className="text-blue-400" />
+            <Circle size={20} />
           ) : (
             <Circle size={20} />
           )}
@@ -131,14 +145,35 @@ export default function TaskItem({ task, onEdit }: TaskItemProps) {
           >
             <Pencil size={13} />
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.15 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={handleDelete}
-            className={`p-1 rounded-md transition-all ${hovered ? 'text-red-400 hover:text-red-600' : 'text-transparent'}`}
-          >
-            <Trash2 size={13} />
-          </motion.button>
+          <AnimatePresence mode="wait">
+            {deleteConfirming ? (
+              <motion.button
+                key="confirm"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleDeleteClick}
+                className="px-1.5 py-0.5 text-[10px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors"
+              >
+                确认删除
+              </motion.button>
+            ) : (
+              <motion.button
+                key="trash"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={handleDeleteClick}
+                className={`p-1 rounded-md transition-all ${hovered ? 'text-red-400 hover:text-red-600' : 'text-transparent'}`}
+              >
+                <Trash2 size={13} />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 

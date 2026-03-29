@@ -74,10 +74,21 @@ export default function TodayView() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="px-6 py-5"
+        className="px-6 py-5 flex items-start justify-between"
       >
-        <h1 className="text-xl font-bold text-stone-900 tracking-tight">今日</h1>
-        <p className="text-sm text-stone-400 mt-0.5">{formatTodayTitle()}</p>
+        <div>
+          <h1 className="text-xl font-bold text-stone-900 tracking-tight">今日</h1>
+          <p className="text-sm text-stone-400 mt-0.5">{formatTodayTitle()}</p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => { setEditingTask(undefined); setShowForm(true) }}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors"
+        >
+          <span className="text-base leading-none">+</span>
+          添加任务
+        </motion.button>
       </motion.div>
 
       <motion.div

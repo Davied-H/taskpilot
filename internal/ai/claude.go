@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"taskpilot/internal/logger"
 )
 
 const (
@@ -201,6 +203,8 @@ func chatTools() []apiTool {
 // ---------- HTTP helper ----------
 
 func (c *ClaudeClient) doRequest(req apiRequest) (*apiResponse, error) {
+	logger.Log.Info("AI API request", "model", req.Model, "url", c.baseURL, "messages", len(req.Messages))
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
@@ -216,6 +220,7 @@ func (c *ClaudeClient) doRequest(req apiRequest) (*apiResponse, error) {
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
+		logger.Log.Error("AI API http error", "error", err)
 		return nil, fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
@@ -226,8 +231,11 @@ func (c *ClaudeClient) doRequest(req apiRequest) (*apiResponse, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Log.Error("AI API error", "status", resp.StatusCode, "body", string(respBody))
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
 	}
+
+	logger.Log.Info("AI API response", "status", resp.StatusCode, "bodyLen", len(respBody))
 
 	var apiResp apiResponse
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {

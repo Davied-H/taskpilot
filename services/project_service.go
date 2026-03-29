@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"taskpilot/internal/core"
+	"taskpilot/internal/logger"
 	"taskpilot/internal/model"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -15,6 +16,7 @@ type ProjectService struct {
 }
 
 func (s *ProjectService) CreateProject(name, description, color string) (*model.Project, error) {
+	logger.Log.Info("creating project", "name", name)
 	p := model.Project{
 		Name:        name,
 		Description: description,
@@ -38,6 +40,7 @@ func (s *ProjectService) CreateProject(name, description, color string) (*model.
 }
 
 func (s *ProjectService) UpdateProject(id, name, description, color string) error {
+	logger.Log.Info("updating project", "id", id, "name", name)
 	err := s.Core.ProjectStore.Update(model.Project{
 		ID:          id,
 		Name:        name,
@@ -51,6 +54,7 @@ func (s *ProjectService) UpdateProject(id, name, description, color string) erro
 }
 
 func (s *ProjectService) DeleteProject(id string) error {
+	logger.Log.Info("deleting project", "id", id)
 	err := s.Core.ProjectStore.Delete(id)
 	if err == nil {
 		s.emitChange()

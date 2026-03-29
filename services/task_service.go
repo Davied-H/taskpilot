@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"taskpilot/internal/core"
+	"taskpilot/internal/logger"
 	"taskpilot/internal/model"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -15,6 +16,7 @@ type TaskService struct {
 }
 
 func (s *TaskService) CreateTask(title, projectId, description string, priority int, dueDate string) (*model.Task, error) {
+	logger.Log.Info("creating task", "title", title, "projectId", projectId, "priority", priority)
 	t := model.Task{
 		Title:       title,
 		ProjectID:   projectId,
@@ -24,6 +26,7 @@ func (s *TaskService) CreateTask(title, projectId, description string, priority 
 		Status:      "todo",
 	}
 	if err := s.Core.TaskStore.Create(t); err != nil {
+		logger.Log.Error("create task failed", "title", title, "error", err)
 		return nil, err
 	}
 	tasks, err := s.Core.TaskStore.ListAll()
@@ -41,6 +44,7 @@ func (s *TaskService) CreateTask(title, projectId, description string, priority 
 }
 
 func (s *TaskService) UpdateTask(id, title, projectId, description, status string, priority int, dueDate string) error {
+	logger.Log.Info("updating task", "id", id, "status", status)
 	err := s.Core.TaskStore.Update(model.Task{
 		ID:          id,
 		Title:       title,
@@ -57,6 +61,7 @@ func (s *TaskService) UpdateTask(id, title, projectId, description, status strin
 }
 
 func (s *TaskService) DeleteTask(id string) error {
+	logger.Log.Info("deleting task", "id", id)
 	err := s.Core.TaskStore.Delete(id)
 	if err == nil {
 		s.emitChange()

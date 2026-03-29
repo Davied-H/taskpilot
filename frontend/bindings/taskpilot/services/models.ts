@@ -70,6 +70,38 @@ export class ChatResponse {
 }
 
 /**
+ * LogFileInfo describes a single log file.
+ */
+export class LogFileInfo {
+    "name": string;
+    "size": number;
+    "modTime": string;
+
+    /** Creates a new LogFileInfo instance. */
+    constructor($$source: Partial<LogFileInfo> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("modTime" in $$source)) {
+            this["modTime"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LogFileInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LogFileInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LogFileInfo($$parsedSource as Partial<LogFileInfo>);
+    }
+}
+
+/**
  * ToolCallResult represents the outcome of a single AI tool call.
  */
 export class ToolCallResult {

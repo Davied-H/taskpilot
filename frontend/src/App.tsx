@@ -4,11 +4,16 @@ import './style.css'
 import { useAppStore } from './stores/appStore'
 import { getProjects, getAllTasks } from './hooks/useWails'
 import { useWailsEvents } from './hooks/useWailsEvents'
+import { useShortcuts } from './hooks/useShortcuts'
+import { useShortcutStore } from './stores/shortcutStore'
+import { registerAllActions } from './lib/actionRegistry'
 import Sidebar from './components/Sidebar'
 import TaskList from './components/TaskList'
 import TodayView from './components/TodayView'
 import SettingsView from './components/SettingsView'
+import LogsView from './components/LogsView'
 import ChatPanel from './components/ChatPanel'
+import CommandPalette from './components/CommandPalette'
 import QuickAddView from './views/QuickAddView'
 
 function App() {
@@ -17,6 +22,15 @@ function App() {
 
   // Subscribe to cross-window events.
   useWailsEvents()
+
+  // Initialize shortcut system (actions + persisted bindings).
+  useEffect(() => {
+    registerAllActions()
+    useShortcutStore.getState().loadShortcuts()
+  }, [])
+
+  // Single global keydown handler for all shortcuts.
+  useShortcuts()
 
   useEffect(() => {
     getProjects().then((projects) => setProjects(projects || []))
@@ -87,6 +101,18 @@ function App() {
               <SettingsView />
             </motion.div>
           )}
+          {currentView === 'logs' && (
+            <motion.div
+              key="logs"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-1 overflow-hidden flex flex-col"
+            >
+              <LogsView />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 
@@ -103,6 +129,7 @@ function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      <CommandPalette />
     </div>
   )
 }

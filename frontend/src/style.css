@@ -54,6 +54,11 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Remove default focus/active outlines */
+*:focus, *:active {
+  outline: none;
+}
+
 body {
   margin: 0;
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -91,8 +96,6 @@ button, a, input, select, textarea {
 /* ===== Focus States ===== */
 input:focus, select:focus, textarea:focus {
   outline: none;
-  box-shadow: var(--shadow-glow);
-  border-color: var(--accent-primary) !important;
 }
 
 /* ===== Loading Animation ===== */

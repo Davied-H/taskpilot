@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, KeyboardEvent } from 'react'
 import { motion } from 'motion/react'
-import { X, Trash2, Send, Bot, User } from 'lucide-react'
+import { X, Trash2, Send, Bot, User, Loader2, AlertCircle } from 'lucide-react'
 import { FiClipboard as _FiClipboard, FiTarget as _FiTarget, FiBarChart2 as _FiBarChart2, FiPlusCircle as _FiPlusCircle } from 'react-icons/fi'
 
 type FiIcon = React.FC<{ size?: number; className?: string }>
@@ -104,12 +104,36 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
   const { chatMessages, addChatMessage, clearChatMessages, toggleChatPanel } = useAppStore()
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const confirmClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages, loading])
+
+  useEffect(() => {
+    return () => {
+      if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current)
+    }
+  }, [])
+
+  const handleClear = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true)
+      confirmClearTimerRef.current = setTimeout(() => setConfirmClear(false), 3000)
+      return
+    }
+    if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current)
+    setConfirmClear(false)
+    try {
+      await clearChatHistoryAPI()
+    } catch (_e) {
+      // ignore backend error, still clear frontend
+    }
+    clearChatMessages()
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
@@ -138,6 +162,7 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
         role: 'assistant',
         content: '抱歉，AI 服务出错了。请检查 API Key 设置。',
         timestamp: Date.now(),
+        isError: true,
       })
     } finally {
       setLoading(false)
@@ -163,11 +188,16 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
         </div>
         <div className="flex items-center gap-0.5">
           <button
-            onClick={clearChatMessages}
-            className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-colors"
-            title="清空对话"
+            onClick={handleClear}
+            className={`p-1.5 rounded-lg transition-colors text-xs flex items-center gap-1 ${
+              confirmClear
+                ? 'bg-red-50 text-red-500 hover:bg-red-100 px-2'
+                : 'hover:bg-stone-100 text-stone-400 hover:text-stone-600'
+            }`}
+            title={confirmClear ? '再次点击确认清空' : '清空对话'}
           >
             <Trash2 size={14} />
+            {confirmClear && <span className="font-medium">确认清空?</span>}
           </button>
           {!standalone && (
             <button
@@ -195,8 +225,8 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
               {QUICK_PROMPTS.map((p, idx) => (
                 <motion.button
                   key={p.text}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ y: 8 }}
+                  animate={{ y: 0 }}
                   transition={{ delay: idx * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   whileHover={{ x: 4 }}
                   onClick={() => handleSend(p.text)}
@@ -228,10 +258,19 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
                     className={`px-3 py-2 rounded-2xl text-[13px] leading-relaxed ${
                       msg.role === 'user'
                         ? 'bg-indigo-500 text-white rounded-br-md'
+                        : msg.isError
+                        ? 'bg-red-50/80 text-red-700 border border-red-200/60 rounded-bl-md'
                         : 'bg-stone-100/80 text-stone-700 rounded-bl-md'
                     }`}
                   >
-                    {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
+                    {msg.role === 'assistant' ? (
+                      msg.isError ? (
+                        <div className="flex items-start gap-1.5">
+                          <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
+                          <span>{msg.content}</span>
+                        </div>
+                      ) : renderMarkdown(msg.content)
+                    ) : msg.content}
                   </div>
                   {msg.toolResults && msg.toolResults.length > 0 && (
                     <div className="flex flex-col gap-1">
@@ -290,13 +329,13 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
             className="flex-1 bg-transparent resize-none outline-none text-sm text-stone-800 placeholder-stone-400 leading-6 max-h-24 disabled:opacity-50"
           />
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={!loading ? { scale: 1.05 } : {}}
+            whileTap={!loading ? { scale: 0.95 } : {}}
             onClick={() => handleSend(input)}
             disabled={loading || !input.trim()}
             className="flex-shrink-0 p-1.5 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
-            <Send size={13} />
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
           </motion.button>
         </div>
         <p className="text-[10px] text-stone-400 mt-1.5 text-center tracking-wide">Powered by Claude AI</p>

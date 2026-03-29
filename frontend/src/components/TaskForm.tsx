@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { Task, useAppStore } from '../stores/appStore'
 import { createTask as createTaskAPI, updateTask as updateTaskAPI } from '../hooks/useWails'
@@ -56,25 +56,23 @@ export default function TaskForm({ task, onClose, onSave }: TaskFormProps) {
   }
 
   return (
-    <AnimatePresence>
-      <div
-        className="fixed inset-0 flex items-center justify-center z-50"
-        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 flex items-center justify-center z-50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="relative bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden"
+        style={{ boxShadow: 'var(--shadow-xl)' }}
       >
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden"
-          style={{ boxShadow: 'var(--shadow-xl)' }}
-        >
           <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
             <h2 className="text-base font-semibold text-stone-800">{task ? '编辑任务' : '新建任务'}</h2>
             <button onClick={onClose} className="text-stone-400 hover:text-stone-600 transition-colors p-1 rounded-lg hover:bg-stone-100">
@@ -84,7 +82,7 @@ export default function TaskForm({ task, onClose, onSave }: TaskFormProps) {
 
           <div className="px-6 py-4 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-stone-600 mb-1.5">标题 *</label>
+              <label className="block text-xs font-medium text-stone-600 mb-1.5">标题 <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={title}
@@ -181,7 +179,6 @@ export default function TaskForm({ task, onClose, onSave }: TaskFormProps) {
             </motion.button>
           </div>
         </motion.div>
-      </div>
-    </AnimatePresence>
+    </motion.div>
   )
 }

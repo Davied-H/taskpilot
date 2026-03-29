@@ -3,11 +3,13 @@
 
 import * as AIService from "./aiservice.js";
 import * as ConfigService from "./configservice.js";
+import * as LogService from "./logservice.js";
 import * as ProjectService from "./projectservice.js";
 import * as TaskService from "./taskservice.js";
 export {
     AIService,
     ConfigService,
+    LogService,
     ProjectService,
     TaskService
 };
@@ -15,5 +17,6 @@ export {
 export {
     AIConfig,
     ChatResponse,
+    LogFileInfo,
     ToolCallResult
 } from "./models.js";

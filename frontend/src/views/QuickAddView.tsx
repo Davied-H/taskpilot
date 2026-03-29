@@ -11,6 +11,7 @@ export default function QuickAddView() {
   const [projects, setProjects] = useState<Project[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     getProjects().then((p) => {
@@ -23,6 +24,7 @@ export default function QuickAddView() {
     e.preventDefault()
     if (!title.trim()) return
     setSubmitting(true)
+    setError('')
     try {
       await createTask(title.trim(), projectId, '', priority, dueDate)
       setSuccess(true)
@@ -31,6 +33,7 @@ export default function QuickAddView() {
       setTimeout(() => setSuccess(false), 1500)
     } catch (err) {
       console.error('Failed to create task:', err)
+      setError('添加失败，请重试')
     } finally {
       setSubmitting(false)
     }
@@ -114,6 +117,10 @@ export default function QuickAddView() {
         />
 
         <div className="flex-1" />
+
+        {error && (
+          <p className="text-xs text-red-500 text-center">{error}</p>
+        )}
 
         <button
           type="submit"
