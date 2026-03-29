@@ -86,6 +86,33 @@ export async function clearChatHistory(): Promise<void> {
   await AIService.ClearChatHistory()
 }
 
+// ---- AI 流式 & 持久化 ----
+
+export interface ChatHistoryItem {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  toolResults?: { action: string; success: boolean; message: string }[]
+  createdAt: string
+}
+
+export async function streamChatWithAI(message: string, projectId: string): Promise<void> {
+  await AIService.StreamChatWithAI(message, projectId)
+}
+
+export async function getChatHistory(projectId: string, limit: number, offset: number): Promise<ChatHistoryItem[]> {
+  const result = await AIService.GetChatHistory(projectId, limit, offset)
+  return (result || []) as unknown as ChatHistoryItem[]
+}
+
+export async function clearProjectChatHistory(projectId: string): Promise<void> {
+  await AIService.ClearProjectChatHistory(projectId)
+}
+
+export async function getProactiveSuggestions(projectId: string): Promise<string> {
+  return await AIService.GetProactiveSuggestions(projectId)
+}
+
 // ---- AI 高级功能 ----
 
 export async function smartSuggestTasks(projectId: string): Promise<string> {
