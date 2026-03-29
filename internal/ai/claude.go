@@ -1,21 +1,15 @@
 package ai
 
 import (
-	"bufio"
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
-	"taskpilot/internal/logger"
-)
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
 
-const (
-	defaultClaudeAPIURL = "https://api.anthropic.com/v1/messages"
-	defaultClaudeModel  = "claude-sonnet-4-20250514"
-	anthropicVersion    = "2023-06-01"
+	"taskpilot/internal/logger"
 )
 
 // ContentBlock represents a single block in a multi-block message (text, tool_use, or tool_result).
@@ -43,78 +37,60 @@ type ToolCall struct {
 	Input map[string]interface{} `json:"input"`
 }
 
-// ClaudeClient wraps the Claude API.
+// ClaudeClient wraps the Claude API via the official SDK.
 type ClaudeClient struct {
-	apiKey  string
-	baseURL string
-	model   string
-	http    *http.Client
+	client  *anthropic.Client
+	model   anthropic.Model
+	baseURL string // kept for logging
 }
 
 // NewClaudeClient creates a new ClaudeClient with the given API key, base URL, and model.
 func NewClaudeClient(apiKey, baseURL, model string) *ClaudeClient {
-	if baseURL == "" {
-		baseURL = defaultClaudeAPIURL
-	}
 	if model == "" {
-		model = defaultClaudeModel
+		model = string(anthropic.ModelClaudeSonnet4_20250514)
 	}
-	// Ensure baseURL ends properly for the messages endpoint
-	baseURL = strings.TrimRight(baseURL, "/")
-	if !strings.HasSuffix(baseURL, "/v1/messages") {
-		baseURL = baseURL + "/v1/messages"
+
+	opts := []option.RequestOption{
+		option.WithAPIKey(apiKey),
 	}
+
+	// Normalise baseURL: strip /v1/messages or /v1 suffix, then decide whether
+	// to pass it to the SDK.
+	cleanURL := strings.TrimRight(baseURL, "/")
+	cleanURL = strings.TrimSuffix(cleanURL, "/v1/messages")
+	cleanURL = strings.TrimSuffix(cleanURL, "/v1")
+	cleanURL = strings.TrimRight(cleanURL, "/")
+
+	if cleanURL != "" && !strings.Contains(cleanURL, "api.anthropic.com") {
+		opts = append(opts, option.WithBaseURL(cleanURL))
+	}
+
+	client := anthropic.NewClient(opts...)
+
 	return &ClaudeClient{
-		apiKey:  apiKey,
+		client:  &client,
+		model:   anthropic.Model(model),
 		baseURL: baseURL,
-		model:   model,
-		http:    &http.Client{},
 	}
 }
 
-// SetAPIKey updates the API key.
+// SetAPIKey updates the API key by recreating the client.
 func (c *ClaudeClient) SetAPIKey(apiKey string) {
-	c.apiKey = apiKey
-}
+	opts := []option.RequestOption{
+		option.WithAPIKey(apiKey),
+	}
 
-// ---------- internal API types ----------
+	cleanURL := strings.TrimRight(c.baseURL, "/")
+	cleanURL = strings.TrimSuffix(cleanURL, "/v1/messages")
+	cleanURL = strings.TrimSuffix(cleanURL, "/v1")
+	cleanURL = strings.TrimRight(cleanURL, "/")
 
-type apiContentBlock struct {
-	Type  string          `json:"type"`
-	Text  string          `json:"text,omitempty"`
-	ID    string          `json:"id,omitempty"`
-	Name  string          `json:"name,omitempty"`
-	Input json.RawMessage `json:"input,omitempty"`
-}
+	if cleanURL != "" && !strings.Contains(cleanURL, "api.anthropic.com") {
+		opts = append(opts, option.WithBaseURL(cleanURL))
+	}
 
-type apiMessage struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content"`
-}
-
-type apiToolInputSchema struct {
-	Type       string                 `json:"type"`
-	Properties map[string]interface{} `json:"properties"`
-	Required   []string               `json:"required,omitempty"`
-}
-
-type apiTool struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	InputSchema apiToolInputSchema `json:"input_schema"`
-}
-
-type apiRequest struct {
-	Model     string       `json:"model"`
-	MaxTokens int          `json:"max_tokens"`
-	System    string       `json:"system,omitempty"`
-	Messages  []apiMessage `json:"messages"`
-	Tools     []apiTool    `json:"tools,omitempty"`
-}
-
-type apiResponse struct {
-	Content    []apiContentBlock `json:"content"`
-	StopReason string            `json:"stop_reason"`
+	client := anthropic.NewClient(opts...)
+	c.client = &client
 }
 
 // ---------- streaming types ----------
@@ -138,192 +114,200 @@ type StreamEvent struct {
 	ToolInput map[string]interface{} `json:"toolInput,omitempty"`
 }
 
-type apiStreamRequest struct {
-	Model     string       `json:"model"`
-	MaxTokens int          `json:"max_tokens"`
-	System    string       `json:"system,omitempty"`
-	Messages  []apiMessage `json:"messages"`
-	Tools     []apiTool    `json:"tools,omitempty"`
-	Stream    bool         `json:"stream"`
-}
-
-type sseMessageStart struct {
-	Type    string `json:"type"`
-	Message struct {
-		ID string `json:"id"`
-	} `json:"message"`
-}
-
-type sseContentBlockStart struct {
-	Type         string `json:"type"`
-	Index        int    `json:"index"`
-	ContentBlock struct {
-		Type string `json:"type"`
-		ID   string `json:"id,omitempty"`
-		Name string `json:"name,omitempty"`
-		Text string `json:"text,omitempty"`
-	} `json:"content_block"`
-}
-
-type sseContentBlockDelta struct {
-	Type  string `json:"type"`
-	Index int    `json:"index"`
-	Delta struct {
-		Type        string `json:"type"`
-		Text        string `json:"text,omitempty"`
-		PartialJSON string `json:"partial_json,omitempty"`
-	} `json:"delta"`
-}
-
 // ---------- tool definitions ----------
 
-func chatTools() []apiTool {
-	return []apiTool{
-		{
+func chatTools() []anthropic.ToolUnionParam {
+	return []anthropic.ToolUnionParam{
+		{OfTool: &anthropic.ToolParam{
 			Name:        "create_task",
-			Description: "创建一个新任务",
-			InputSchema: apiToolInputSchema{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"title": map[string]interface{}{
+			Description: anthropic.String("创建一个新任务"),
+			InputSchema: anthropic.ToolInputSchemaParam{
+				Properties: map[string]any{
+					"title": map[string]any{
 						"type":        "string",
 						"description": "任务标题",
 					},
-					"projectId": map[string]interface{}{
+					"projectId": map[string]any{
 						"type":        "string",
 						"description": "所属项目ID",
 					},
-					"priority": map[string]interface{}{
+					"priority": map[string]any{
 						"type":        "integer",
 						"description": "优先级，0=P0(紧急), 1=P1, 2=P2, 3=P3",
 						"minimum":     0,
 						"maximum":     3,
 					},
-					"dueDate": map[string]interface{}{
+					"dueDate": map[string]any{
 						"type":        "string",
 						"description": "截止日期，ISO格式（可选）",
 					},
 				},
 				Required: []string{"title", "projectId"},
 			},
-		},
-		{
+		}},
+		{OfTool: &anthropic.ToolParam{
 			Name:        "update_task",
-			Description: "更新已有任务",
-			InputSchema: apiToolInputSchema{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"id": map[string]interface{}{
+			Description: anthropic.String("更新已有任务"),
+			InputSchema: anthropic.ToolInputSchemaParam{
+				Properties: map[string]any{
+					"id": map[string]any{
 						"type":        "string",
 						"description": "任务ID",
 					},
-					"title": map[string]interface{}{
+					"title": map[string]any{
 						"type":        "string",
 						"description": "任务标题",
 					},
-					"status": map[string]interface{}{
+					"status": map[string]any{
 						"type":        "string",
 						"description": "任务状态",
 						"enum":        []string{"todo", "doing", "done"},
 					},
-					"priority": map[string]interface{}{
+					"priority": map[string]any{
 						"type":        "integer",
 						"description": "优先级，0-3",
 					},
-					"dueDate": map[string]interface{}{
+					"dueDate": map[string]any{
 						"type":        "string",
 						"description": "截止日期，ISO格式",
 					},
 				},
 				Required: []string{"id"},
 			},
-		},
-		{
+		}},
+		{OfTool: &anthropic.ToolParam{
 			Name:        "list_tasks",
-			Description: "查询任务列表",
-			InputSchema: apiToolInputSchema{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"projectId": map[string]interface{}{
+			Description: anthropic.String("查询任务列表"),
+			InputSchema: anthropic.ToolInputSchemaParam{
+				Properties: map[string]any{
+					"projectId": map[string]any{
 						"type":        "string",
 						"description": "按项目ID过滤（可选）",
 					},
-					"status": map[string]interface{}{
+					"status": map[string]any{
 						"type":        "string",
 						"description": "按状态过滤：todo/doing/done（可选）",
 					},
 				},
 			},
-		},
-		{
+		}},
+		{OfTool: &anthropic.ToolParam{
 			Name:        "delete_task",
-			Description: "删除一个任务",
-			InputSchema: apiToolInputSchema{
-				Type: "object",
-				Properties: map[string]interface{}{
-					"id": map[string]interface{}{
+			Description: anthropic.String("删除一个任务"),
+			InputSchema: anthropic.ToolInputSchemaParam{
+				Properties: map[string]any{
+					"id": map[string]any{
 						"type":        "string",
 						"description": "要删除的任务ID",
 					},
 				},
 				Required: []string{"id"},
 			},
+		}},
+	}
+}
+
+// ---------- message conversion ----------
+
+// convertMessages converts ChatMessage slices into SDK MessageParam slices.
+func convertMessages(messages []ChatMessage) []anthropic.MessageParam {
+	params := make([]anthropic.MessageParam, 0, len(messages))
+	for _, m := range messages {
+		params = append(params, convertOneMessage(m))
+	}
+	return params
+}
+
+func convertOneMessage(m ChatMessage) anthropic.MessageParam {
+	if len(m.ContentBlocks) > 0 {
+		blocks := make([]anthropic.ContentBlockParamUnion, 0, len(m.ContentBlocks))
+		for _, b := range m.ContentBlocks {
+			switch b.Type {
+			case "text":
+				blocks = append(blocks, anthropic.NewTextBlock(b.Text))
+			case "tool_use":
+				inputJSON, _ := json.Marshal(b.Input)
+				blocks = append(blocks, anthropic.ContentBlockParamUnion{
+					OfToolUse: &anthropic.ToolUseBlockParam{
+						ID:    b.ID,
+						Name:  b.Name,
+						Input: json.RawMessage(inputJSON),
+					},
+				})
+			case "tool_result":
+				blocks = append(blocks, anthropic.NewToolResultBlock(b.ToolUseID, b.Content, false))
+			}
+		}
+		if m.Role == "assistant" {
+			return anthropic.NewAssistantMessage(blocks...)
+		}
+		return anthropic.NewUserMessage(blocks...)
+	}
+
+	// Simple text content
+	if m.Role == "assistant" {
+		return anthropic.NewAssistantMessage(anthropic.NewTextBlock(m.Content))
+	}
+	return anthropic.NewUserMessage(anthropic.NewTextBlock(m.Content))
+}
+
+// ---------- internal helpers ----------
+
+// simpleRequest is a shared helper for non-tool, single-turn requests.
+func (c *ClaudeClient) simpleRequest(systemPrompt, userMessage string, maxTokens int) (string, error) {
+	logger.Log.Info("AI API request", "model", string(c.model), "baseURL", c.baseURL)
+
+	params := anthropic.MessageNewParams{
+		Model:     c.model,
+		MaxTokens: int64(maxTokens),
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage)),
 		},
 	}
-}
+	if systemPrompt != "" {
+		params.System = []anthropic.TextBlockParam{{Text: systemPrompt}}
+	}
 
-// ---------- HTTP helper ----------
-
-func (c *ClaudeClient) doRequest(req apiRequest) (*apiResponse, error) {
-	logger.Log.Info("AI API request", "model", req.Model, "url", c.baseURL, "messages", len(req.Messages))
-
-	body, err := json.Marshal(req)
+	message, err := c.client.Messages.New(context.TODO(), params)
 	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
+		logger.Log.Error("AI API error", "error", err)
+		return "", fmt.Errorf("API error: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create http request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", c.apiKey)
-	httpReq.Header.Set("anthropic-version", anthropicVersion)
-
-	resp, err := c.http.Do(httpReq)
-	if err != nil {
-		logger.Log.Error("AI API http error", "error", err)
-		return nil, fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Log.Error("AI API error", "status", resp.StatusCode, "body", string(respBody))
-		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	logger.Log.Info("AI API response", "status", resp.StatusCode, "bodyLen", len(respBody))
-
-	var apiResp apiResponse
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, fmt.Errorf("unmarshal response: %w", err)
-	}
-	return &apiResp, nil
-}
-
-func (c *ClaudeClient) extractText(resp *apiResponse) string {
-	var result string
-	for _, block := range resp.Content {
-		if block.Type == "text" {
-			result += block.Text
+	var text string
+	for _, block := range message.Content {
+		if v, ok := block.AsAny().(anthropic.TextBlock); ok {
+			text += v.Text
 		}
 	}
-	return result
+
+	logger.Log.Info("AI API response", "textLen", len(text))
+	return text, nil
+}
+
+// extractResults extracts text and tool calls from an accumulated message.
+func extractResults(message *anthropic.Message) (string, []ToolCall) {
+	var text string
+	var toolCalls []ToolCall
+
+	for _, block := range message.Content {
+		switch v := block.AsAny().(type) {
+		case anthropic.TextBlock:
+			text += v.Text
+		case anthropic.ToolUseBlock:
+			var input map[string]interface{}
+			if err := json.Unmarshal([]byte(v.JSON.Input.Raw()), &input); err != nil {
+				input = map[string]interface{}{}
+			}
+			toolCalls = append(toolCalls, ToolCall{
+				ID:    v.ID,
+				Name:  v.Name,
+				Input: input,
+			})
+		}
+	}
+
+	return text, toolCalls
 }
 
 // ---------- public methods ----------
@@ -335,54 +319,29 @@ func (c *ClaudeClient) Chat(messages []ChatMessage, taskContext string) (string,
 		systemPrompt += "\n\n当前任务数据（JSON格式）：\n" + taskContext
 	}
 
-	apiMsgs := make([]apiMessage, len(messages))
-	for i, m := range messages {
-		if len(m.ContentBlocks) > 0 {
-			apiMsgs[i] = apiMessage{Role: m.Role, Content: m.ContentBlocks}
-		} else {
-			apiMsgs[i] = apiMessage{Role: m.Role, Content: m.Content}
-		}
-	}
+	logger.Log.Info("AI API request", "model", string(c.model), "baseURL", c.baseURL, "messages", len(messages))
 
-	req := apiRequest{
+	params := anthropic.MessageNewParams{
 		Model:     c.model,
-		MaxTokens: 4096,
-		System:    systemPrompt,
-		Messages:  apiMsgs,
+		MaxTokens: int64(4096),
+		System:    []anthropic.TextBlockParam{{Text: systemPrompt}},
+		Messages:  convertMessages(messages),
 		Tools:     chatTools(),
 	}
 
-	resp, err := c.doRequest(req)
+	message, err := c.client.Messages.New(context.TODO(), params)
 	if err != nil {
-		return "", nil, err
+		logger.Log.Error("AI API error", "error", err)
+		return "", nil, fmt.Errorf("API error: %w", err)
 	}
 
-	var textContent string
-	var toolCalls []ToolCall
+	text, toolCalls := extractResults(message)
 
-	for _, block := range resp.Content {
-		switch block.Type {
-		case "text":
-			textContent += block.Text
-		case "tool_use":
-			var input map[string]interface{}
-			if len(block.Input) > 0 {
-				if err := json.Unmarshal(block.Input, &input); err != nil {
-					return "", nil, fmt.Errorf("unmarshal tool input: %w", err)
-				}
-			}
-			toolCalls = append(toolCalls, ToolCall{
-				ID:    block.ID,
-				Name:  block.Name,
-				Input: input,
-			})
-		}
-	}
-
-	return textContent, toolCalls, nil
+	logger.Log.Info("AI API response", "textLen", len(text), "toolCalls", len(toolCalls))
+	return text, toolCalls, nil
 }
 
-// ChatStream sends a conversation to Claude using SSE streaming and calls onEvent for each event.
+// ChatStream sends a conversation to Claude using streaming and calls onEvent for each event.
 func (c *ClaudeClient) ChatStream(messages []ChatMessage, taskContext string, onEvent func(StreamEvent)) (string, []ToolCall, error) {
 	systemPrompt := `你是 TaskPilot AI 助手，帮助用户管理项目和任务。用户的任务数据会作为上下文提供。你可以使用工具来创建、更新、查询、删除任务。请用中文回复。
 
@@ -396,143 +355,71 @@ func (c *ClaudeClient) ChatStream(messages []ChatMessage, taskContext string, on
 		systemPrompt += "\n\n当前任务数据（JSON格式）：\n" + taskContext
 	}
 
-	apiMsgs := make([]apiMessage, len(messages))
-	for i, m := range messages {
-		if len(m.ContentBlocks) > 0 {
-			apiMsgs[i] = apiMessage{Role: m.Role, Content: m.ContentBlocks}
-		} else {
-			apiMsgs[i] = apiMessage{Role: m.Role, Content: m.Content}
-		}
-	}
+	logger.Log.Info("AI streaming request", "model", string(c.model), "baseURL", c.baseURL, "messages", len(messages))
 
-	req := apiStreamRequest{
+	params := anthropic.MessageNewParams{
 		Model:     c.model,
-		MaxTokens: 4096,
-		System:    systemPrompt,
-		Messages:  apiMsgs,
+		MaxTokens: int64(4096),
+		System:    []anthropic.TextBlockParam{{Text: systemPrompt}},
+		Messages:  convertMessages(messages),
 		Tools:     chatTools(),
-		Stream:    true,
 	}
 
-	logger.Log.Info("AI streaming request", "model", req.Model, "url", c.baseURL, "messages", len(req.Messages))
+	stream := c.client.Messages.NewStreaming(context.TODO(), params)
+	message := anthropic.Message{}
 
-	body, err := json.Marshal(req)
-	if err != nil {
-		return "", nil, fmt.Errorf("marshal request: %w", err)
-	}
+	var messageID string
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.baseURL, bytes.NewReader(body))
-	if err != nil {
-		return "", nil, fmt.Errorf("create http request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", c.apiKey)
-	httpReq.Header.Set("anthropic-version", anthropicVersion)
+	for stream.Next() {
+		event := stream.Current()
+		message.Accumulate(event)
 
-	resp, err := c.http.Do(httpReq)
-	if err != nil {
-		return "", nil, fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		logger.Log.Error("AI streaming error", "status", resp.StatusCode, "body", string(respBody))
-		return "", nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	return c.parseSSEStream(resp.Body, onEvent)
-}
-
-func (c *ClaudeClient) parseSSEStream(body io.Reader, onEvent func(StreamEvent)) (string, []ToolCall, error) {
-	scanner := bufio.NewScanner(body)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	var (
-		fullText         string
-		toolCalls        []ToolCall
-		messageID        string
-		currentBlockType string
-		currentToolID    string
-		currentToolName  string
-		toolInputJSON    string
-	)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
-
-		var raw map[string]interface{}
-		if err := json.Unmarshal([]byte(data), &raw); err != nil {
-			continue
-		}
-
-		eventType, _ := raw["type"].(string)
-
-		switch eventType {
-		case "message_start":
-			var evt sseMessageStart
-			json.Unmarshal([]byte(data), &evt)
-			messageID = evt.Message.ID
+		switch ev := event.AsAny().(type) {
+		case anthropic.MessageStartEvent:
+			messageID = ev.Message.ID
 			onEvent(StreamEvent{
 				Type:      StreamEventStart,
 				MessageID: messageID,
 			})
 
-		case "content_block_start":
-			var evt sseContentBlockStart
-			json.Unmarshal([]byte(data), &evt)
-			currentBlockType = evt.ContentBlock.Type
-			if currentBlockType == "tool_use" {
-				currentToolID = evt.ContentBlock.ID
-				currentToolName = evt.ContentBlock.Name
-				toolInputJSON = ""
-			}
+		case anthropic.ContentBlockStartEvent:
+			// If it's a tool_use block, we note it but don't emit yet;
+			// we'll emit StreamEventToolCall at content_block_stop via extractResults.
 
-		case "content_block_delta":
-			var evt sseContentBlockDelta
-			json.Unmarshal([]byte(data), &evt)
-
-			if evt.Delta.Type == "text_delta" {
-				fullText += evt.Delta.Text
+		case anthropic.ContentBlockDeltaEvent:
+			switch delta := ev.Delta.AsAny().(type) {
+			case anthropic.TextDelta:
 				onEvent(StreamEvent{
 					Type:      StreamEventChunk,
 					MessageID: messageID,
-					Text:      evt.Delta.Text,
+					Text:      delta.Text,
 				})
-			} else if evt.Delta.Type == "input_json_delta" {
-				toolInputJSON += evt.Delta.PartialJSON
+			case anthropic.InputJSONDelta:
+				// Tool input accumulates via message.Accumulate; nothing to emit.
+				_ = delta
 			}
 
-		case "content_block_stop":
-			if currentBlockType == "tool_use" {
-				var input map[string]interface{}
-				if toolInputJSON != "" {
-					json.Unmarshal([]byte(toolInputJSON), &input)
+		case anthropic.ContentBlockStopEvent:
+			// Check if the just-finished block is a tool_use block.
+			idx := ev.Index
+			if int(idx) < len(message.Content) {
+				block := message.Content[idx]
+				if v, ok := block.AsAny().(anthropic.ToolUseBlock); ok {
+					var input map[string]interface{}
+					if err := json.Unmarshal([]byte(v.JSON.Input.Raw()), &input); err != nil {
+						input = map[string]interface{}{}
+					}
+					onEvent(StreamEvent{
+						Type:      StreamEventToolCall,
+						MessageID: messageID,
+						ToolName:  v.Name,
+						ToolID:    v.ID,
+						ToolInput: input,
+					})
 				}
-				toolCalls = append(toolCalls, ToolCall{
-					ID:    currentToolID,
-					Name:  currentToolName,
-					Input: input,
-				})
-				onEvent(StreamEvent{
-					Type:      StreamEventToolCall,
-					MessageID: messageID,
-					ToolName:  currentToolName,
-					ToolID:    currentToolID,
-					ToolInput: input,
-				})
 			}
-			currentBlockType = ""
 
-		case "message_stop":
+		case anthropic.MessageStopEvent:
 			onEvent(StreamEvent{
 				Type:      StreamEventEnd,
 				MessageID: messageID,
@@ -540,12 +427,18 @@ func (c *ClaudeClient) parseSSEStream(body io.Reader, onEvent func(StreamEvent))
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return fullText, toolCalls, fmt.Errorf("read SSE stream: %w", err)
+	if stream.Err() != nil {
+		logger.Log.Error("AI streaming error", "error", stream.Err())
+		return "", nil, fmt.Errorf("streaming error: %w", stream.Err())
 	}
 
-	return fullText, toolCalls, nil
+	text, toolCalls := extractResults(&message)
+
+	logger.Log.Info("AI streaming completed", "textLen", len(text), "toolCalls", len(toolCalls))
+	return text, toolCalls, nil
 }
+
+// ---------- high-level methods ----------
 
 // GenerateDailySummary generates a Markdown daily summary from a list of tasks.
 func (c *ClaudeClient) GenerateDailySummary(tasks []map[string]interface{}) (string, error) {
@@ -555,21 +448,7 @@ func (c *ClaudeClient) GenerateDailySummary(tasks []map[string]interface{}) (str
 	}
 
 	userContent := "请根据以下任务数据生成一份简洁的每日工作摘要。包括：已完成的工作、进行中的工作、待处理的紧急事项。用中文回复，格式清晰。\n\n任务数据：\n" + string(taskJSON)
-
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 2048,
-		Messages: []apiMessage{
-			{Role: "user", Content: userContent},
-		},
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return "", err
-	}
-
-	return c.extractText(resp), nil
+	return c.simpleRequest("", userContent, 2048)
 }
 
 // SmartSuggest analyzes existing tasks and suggests new tasks.
@@ -591,17 +470,7 @@ func (c *ClaudeClient) SmartSuggest(tasks []map[string]interface{}, projectName 
 现有任务数据：
 %s`, projectName, string(taskJSON))
 
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 2048,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return "", err
-	}
-	return c.extractText(resp), nil
+	return c.simpleRequest("", prompt, 2048)
 }
 
 // DecomposeTask breaks down a complex task into subtasks.
@@ -624,17 +493,7 @@ func (c *ClaudeClient) DecomposeTask(taskTitle, taskDescription string, contextT
 项目现有任务上下文：
 %s`, taskTitle, taskDescription, string(contextJSON))
 
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 2048,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return "", err
-	}
-	return c.extractText(resp), nil
+	return c.simpleRequest("", prompt, 2048)
 }
 
 // PrioritizeTasks analyzes and suggests priority adjustments.
@@ -661,17 +520,7 @@ func (c *ClaudeClient) PrioritizeTasks(tasks []map[string]interface{}) (string, 
 任务数据：
 %s`, string(taskJSON))
 
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 2048,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return "", err
-	}
-	return c.extractText(resp), nil
+	return c.simpleRequest("", prompt, 2048)
 }
 
 // GenerateWeeklyReport generates a weekly progress report.
@@ -705,17 +554,7 @@ func (c *ClaudeClient) GenerateWeeklyReport(tasks []map[string]interface{}) (str
 任务数据：
 %s`, string(taskJSON))
 
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 3000,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return "", err
-	}
-	return c.extractText(resp), nil
+	return c.simpleRequest("", prompt, 3000)
 }
 
 // GetProactiveSuggestions analyzes tasks and returns proactive suggestions.
@@ -739,17 +578,7 @@ func (c *ClaudeClient) GetProactiveSuggestions(tasks []map[string]interface{}, p
 当前任务数据：
 %s`, projectName, string(taskJSON))
 
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 512,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
-	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return "", err
-	}
-	return c.extractText(resp), nil
+	return c.simpleRequest("", prompt, 512)
 }
 
 // AutoTagTask uses AI to generate tags for a task.
@@ -767,18 +596,12 @@ func (c *ClaudeClient) AutoTagTask(title, description string, existingTags []str
 任务标题：%s
 任务描述：%s`, tagsContext, title, description)
 
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 64,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
-	}
-
-	resp, err := c.doRequest(req)
+	text, err := c.simpleRequest("", prompt, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	text := strings.TrimSpace(c.extractText(resp))
+	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, nil
 	}
@@ -795,13 +618,6 @@ func (c *ClaudeClient) AutoTagTask(title, description string, existingTags []str
 
 // TestConnection tests if the API configuration is working.
 func (c *ClaudeClient) TestConnection() error {
-	req := apiRequest{
-		Model:     c.model,
-		MaxTokens: 16,
-		Messages: []apiMessage{
-			{Role: "user", Content: "Hi"},
-		},
-	}
-	_, err := c.doRequest(req)
+	_, err := c.simpleRequest("", "Hi", 16)
 	return err
 }
