@@ -253,6 +253,13 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 
 	var result ToolCallResult
 
+	emitTaskChanged := func() {
+		app := application.Get()
+		if app != nil {
+			app.Event.Emit("task:changed", nil)
+		}
+	}
+
 	switch tc.Name {
 	case "create_task":
 		title := getStr("title")
@@ -266,6 +273,7 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 		if err != nil {
 			result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
 		} else {
+			emitTaskChanged()
 			result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已创建", title)}
 		}
 
@@ -290,6 +298,7 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 			if err := s.Core.TaskStore.Update(*existing); err != nil {
 				result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
 			} else {
+				emitTaskChanged()
 				result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已更新", id)}
 			}
 		}
@@ -299,6 +308,7 @@ func (s *AIService) executeToolCall(tc ai.ToolCall) ToolCallResult {
 		if err := s.Core.TaskStore.Delete(id); err != nil {
 			result = ToolCallResult{Action: tc.Name, Success: false, Message: err.Error()}
 		} else {
+			emitTaskChanged()
 			result = ToolCallResult{Action: tc.Name, Success: true, Message: fmt.Sprintf("任务 '%s' 已删除", id)}
 		}
 
