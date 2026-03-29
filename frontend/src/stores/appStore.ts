@@ -49,6 +49,7 @@ interface AppState {
   toggleChatPanel: () => void
   addChatMessage: (msg: ChatMessage) => void
   clearChatMessages: () => void
+  loadChatHistory: (projectId: string) => Promise<void>
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -66,4 +67,19 @@ export const useAppStore = create<AppState>((set) => ({
   toggleChatPanel: () => set((state) => ({ showChatPanel: !state.showChatPanel })),
   addChatMessage: (msg) => set((state) => ({ chatMessages: [...state.chatMessages, msg] })),
   clearChatMessages: () => set({ chatMessages: [] }),
+  loadChatHistory: async (projectId: string) => {
+    try {
+      const { getChatHistory } = await import('../hooks/useWails')
+      const history = await getChatHistory(projectId, 50, 0)
+      const messages: ChatMessage[] = (history || []).map(h => ({
+        role: h.role as 'user' | 'assistant',
+        content: h.content,
+        toolResults: h.toolResults,
+        timestamp: new Date(h.createdAt).getTime(),
+      }))
+      set({ chatMessages: messages })
+    } catch {
+      // Silently fail — fresh chat is fine
+    }
+  },
 }))

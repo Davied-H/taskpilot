@@ -32,7 +32,7 @@ const QUICK_PROMPTS: { icon: FiIcon; label: string; text: string }[] = [
 ]
 
 export default function ChatPanel({ standalone = false }: { standalone?: boolean }) {
-  const { chatMessages, clearChatMessages, toggleChatPanel } = useAppStore()
+  const { chatMessages, clearChatMessages, toggleChatPanel, loadChatHistory, selectedProjectId } = useAppStore()
   const { status, streamingContent, toolResults, sendMessage } = useAIStream()
   const isStreaming = status === 'streaming' || status === 'tool_calling'
   const [input, setInput] = useState('')
@@ -50,6 +50,10 @@ export default function ChatPanel({ standalone = false }: { standalone?: boolean
       if (confirmClearTimerRef.current) clearTimeout(confirmClearTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    loadChatHistory(selectedProjectId || '')
+  }, [selectedProjectId, loadChatHistory])
 
   const handleClear = async () => {
     if (!confirmClear) {
