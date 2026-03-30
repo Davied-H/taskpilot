@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskPilot — AI-Powered Task Management</title>
+  <meta name="description" content="TaskPilot is a desktop app that combines intelligent task management with AI-powered assistance. Built with Wails, Go, and React.">
+  <meta property="og:title" content="TaskPilot — AI-Powered Task Management">
+  <meta property="og:description" content="A desktop app that combines intelligent task management with AI-powered assistance.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --indigo: #6366f1;
+      --indigo-hover: #5558e6;
+      --indigo-light: #eef2ff;
+      --bg: #fafaf9;
+      --bg-dark: #1c1917;
+      --text-primary: #1c1917;
+      --text-secondary: #78716c;
+      --text-tertiary: #a8a29e;
+      --border: #e7e5e4;
+      --card-bg: rgba(255,255,255,0.7);
+      --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      color: var(--text-primary);
+      background: var(--bg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Nav ─────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      background: rgba(250,250,249,0.8);
+      border-bottom: 1px solid rgba(231,229,228,0.5);
+      transition: background 0.3s;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 1.2rem; color: var(--text-primary);
+      text-decoration: none;
+    }
+    .nav-logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--indigo), #8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 800; font-size: 14px;
+    }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a {
+      color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-cta {
+      background: var(--text-primary) !important; color: white !important;
+      padding: 8px 20px; border-radius: 10px; font-weight: 600 !important;
+      transition: opacity 0.2s !important;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    /* ── Hero ────────────────────────────────────────────── */
+    .hero {
+      padding: 160px 32px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--indigo-light); color: var(--indigo);
+      padding: 6px 16px; border-radius: 100px;
+      font-size: 0.85rem; font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--indigo);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800; line-height: 1.1;
+      letter-spacing: -0.03em;
+      max-width: 800px; margin: 0 auto 20px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--indigo), #8b5cf6, #ec4899);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1.2rem; color: var(--text-secondary);
+      max-width: 560px; margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+    .hero-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 14px;
+      font-size: 1rem; font-weight: 600; text-decoration: none;
+      transition: all 0.25s var(--ease);
+      cursor: pointer; border: none;
+    }
+    .btn-primary {
+      background: var(--indigo); color: white;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+    }
+    .btn-primary:hover {
+      background: var(--indigo-hover);
+      box-shadow: 0 6px 28px rgba(99,102,241,0.4);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: white; color: var(--text-primary);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .btn-secondary:hover {
+      border-color: var(--text-tertiary);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    /* ── Screenshot ──────────────────────────────────────── */
+    .screenshot-wrapper {
+      max-width: 960px; margin: 60px auto 0;
+      padding: 0 32px;
+      position: relative;
+    }
+    .screenshot {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.12), 0 8px 32px rgba(0,0,0,0.06);
+      background: linear-gradient(135deg, #f5f5f4, #e7e5e4);
+      aspect-ratio: 16/10;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-tertiary); font-size: 0.9rem;
+      overflow: hidden;
+    }
+    .screenshot-placeholder {
+      text-align: center;
+    }
+    .screenshot-placeholder svg { margin-bottom: 12px; opacity: 0.4; }
+
+    /* ── Section shared ──────────────────────────────────── */
+    section { padding: 100px 32px; }
+    .section-header {
+      text-align: center; max-width: 600px; margin: 0 auto 60px;
+    }
+    .section-header .label {
+      font-size: 0.85rem; font-weight: 600; color: var(--indigo);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .section-header h2 {
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 800; letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-header p {
+      color: var(--text-secondary); font-size: 1.05rem;
+    }
+
+    /* ── Features ─────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px; max-width: 1080px; margin: 0 auto;
+    }
+    .feature-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: all 0.3s var(--ease);
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+      border-color: rgba(99,102,241,0.2);
+    }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; font-size: 20px;
+    }
+    .feature-card h3 {
+      font-size: 1.05rem; font-weight: 700; margin-bottom: 8px;
+    }
+    .feature-card p {
+      color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6;
+    }
+
+    /* icon bg colors */
+    .icon-indigo { background: #eef2ff; }
+    .icon-purple { background: #f5f3ff; }
+    .icon-blue   { background: #eff6ff; }
+    .icon-red    { background: #fef2f2; }
+    .icon-amber  { background: #fffbeb; }
+    .icon-green  { background: #ecfdf5; }
+
+    /* ── Tech Stack ───────────────────────────────────────── */
+    .tech-section { background: var(--bg-dark); color: white; }
+    .tech-section .section-header .label { color: #a5b4fc; }
+    .tech-section .section-header p { color: #a8a29e; }
+    .tech-grid {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 32px; max-width: 800px; margin: 0 auto;
+    }
+    .tech-item {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      min-width: 100px;
+    }
+    .tech-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      transition: all 0.3s var(--ease);
+    }
+    .tech-item:hover .tech-icon {
+      background: rgba(255,255,255,0.14);
+      transform: translateY(-3px);
+    }
+    .tech-item span {
+      font-size: 0.85rem; color: #a8a29e; font-weight: 500;
+    }
+
+    /* ── Getting Started ──────────────────────────────────── */
+    .steps { max-width: 680px; margin: 0 auto; }
+    .step {
+      display: flex; gap: 20px; margin-bottom: 32px;
+      align-items: flex-start;
+    }
+    .step-number {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: var(--indigo-light); color: var(--indigo);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem;
+    }
+    .step-content h3 {
+      font-size: 1rem; font-weight: 700; margin-bottom: 8px;
+    }
+    .step-content p {
+      color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 10px;
+    }
+    .code-block {
+      background: var(--bg-dark); color: #e7e5e4;
+      padding: 14px 18px; border-radius: 10px;
+      font-family: var(--mono); font-size: 0.85rem;
+      overflow-x: auto; line-height: 1.8;
+    }
+    .code-block .comment { color: #78716c; }
+    .code-block .cmd { color: #a5b4fc; }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 48px 32px;
+      border-top: 1px solid var(--border);
+      color: var(--text-tertiary);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--text-secondary); text-decoration: none; }
+    footer a:hover { color: var(--indigo); }
+    footer .footer-links {
+      display: flex; justify-content: center; gap: 24px; margin-bottom: 16px;
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 12px 20px; }
+      .nav-links { display: none; }
+      .hero { padding: 120px 20px 60px; }
+      section { padding: 60px 20px; }
+      .features-grid { grid-template-columns: 1fr; }
+      .tech-grid { gap: 20px; }
+      .step { flex-direction: column; gap: 12px; }
+    }
+
+    /* ── Animations ───────────────────────────────────────── */
+    .fade-up {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+    }
+    .fade-up.visible {
+      opacity: 1; transform: translateY(0);
+    }
+    .delay-1 { transition-delay: 0.1s; }
+    .delay-2 { transition-delay: 0.2s; }
+    .delay-3 { transition-delay: 0.3s; }
+    .delay-4 { transition-delay: 0.4s; }
+    .delay-5 { transition-delay: 0.5s; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Nav ─────────────────────────────────────────────── -->
+  <nav>
+    <a href="#" class="nav-brand">
+      <div class="nav-logo">T</div>
+      TaskPilot
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#tech">Tech Stack</a>
+      <a href="#start">Get Started</a>
+      <a href="https://github.com/gjwroot/taskpilot" class="nav-cta">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-badge fade-up">
+      <span class="dot"></span>
+      Open Source Desktop App
+    </div>
+    <h1 class="fade-up delay-1">
+      Task Management,<br><span class="gradient">Powered by AI</span>
+    </h1>
+    <p class="fade-up delay-2">
+      TaskPilot is a native desktop app that brings AI intelligence to your daily task workflow.
+      Chat with AI to manage tasks, get smart suggestions, and never lose track of what matters.
+    </p>
+    <div class="hero-buttons fade-up delay-3">
+      <a href="https://github.com/gjwroot/taskpilot/releases" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+      <a href="https://github.com/gjwroot/taskpilot" class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <!-- Screenshot placeholder -->
+    <div class="screenshot-wrapper fade-up delay-4">
+      <div class="screenshot">
+        <div class="screenshot-placeholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <p>App Screenshot — Replace with actual screenshot</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ─────────────────────────────────────────── -->
+  <section id="features">
+    <div class="section-header">
+      <div class="label fade-up">Features</div>
+      <h2 class="fade-up delay-1">Everything you need,<br>intelligently integrated</h2>
+      <p class="fade-up delay-2">From natural language task creation to meeting transcription, TaskPilot brings AI into every part of your workflow.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card fade-up">
+        <div class="feature-icon icon-indigo">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>AI Chat Assistant</h3>
+        <p>Manage tasks through natural language. Say "create a task for the API review due Friday" and it's done. Streaming responses with tool-use capabilities.</p>
+      </div>
+
+      <div class="feature-card fade-up delay-1">
+        <div class="feature-icon icon-purple">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <h3>Smart Suggestions</h3>
+        <p>Daily summaries, weekly reports, task decomposition, priority optimization, and auto-tagging — all powered by Claude AI.</p>
+      </div>
+
+      <div class="feature-card fade-up delay-2">
+        <div class="feature-icon icon-blue">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <h3>Feishu Integration</h3>
+        <p>Bidirectional sync with Feishu Bitable. Bot notifications for task changes. Seamless team collaboration across platforms.</p>
+      </div>
+
+      <div class="feature-card fade-up delay-3">
+        <div class="feature-icon icon-red">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <h3>Meeting Recording</h3>
+        <p>Record meetings, transcribe with Whisper, identify speakers, and let AI extract action items and create tasks automatically.</p>
+      </div>
+
+      <div class="feature-card fade-up delay-4">
+        <div class="feature-icon icon-amber">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3>Command Palette</h3>
+        <p>Fuzzy-search command launcher with customizable keyboard shortcuts. Navigate and act without ever touching the mouse.</p>
+      </div>
+
+      <div class="feature-card fade-up delay-5">
+        <div class="feature-icon icon-green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <h3>Multi-Window</h3>
+        <p>Quick-add floating window, standalone AI chat, and system tray support. A native desktop experience that stays out of your way.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tech Stack ───────────────────────────────────────── -->
+  <section id="tech" class="tech-section">
+    <div class="section-header">
+      <div class="label fade-up">Built With</div>
+      <h2 class="fade-up delay-1" style="color:white">Modern Tech Stack</h2>
+      <p class="fade-up delay-2">Native performance meets modern web UI, powered by cutting-edge tools.</p>
+    </div>
+
+    <div class="tech-grid">
+      <div class="tech-item fade-up">
+        <div class="tech-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <span>Wails v3</span>
+      </div>
+      <div class="tech-item fade-up delay-1">
+        <div class="tech-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#00ADD8" stroke-width="2" stroke-linecap="round"><path d="M2 8l10-5 10 5-10 5-10-5z"/><path d="M2 12l10 5 10-5"/><path d="M2 16l10 5 10-5"/></svg>
+        </div>
+        <span>Go</span>
+      </div>
+      <div class="tech-item fade-up delay-2">
+        <div class="tech-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#61DAFB"><circle cx="12" cy="12" r="2.5"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1.5"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1.5" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1.5" transform="rotate(-60 12 12)"/></svg>
+        </div>
+        <span>React</span>
+      </div>
+      <div class="tech-item fade-up delay-3">
+        <div class="tech-icon" style="font-weight:700;color:#3178C6;font-size:18px;">TS</div>
+        <span>TypeScript</span>
+      </div>
+      <div class="tech-item fade-up delay-4">
+        <div class="tech-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"><path d="M12 3v18"/><path d="M5.5 6.5L12 3l6.5 3.5"/><path d="M3 12h18"/></svg>
+        </div>
+        <span>SQLite</span>
+      </div>
+      <div class="tech-item fade-up delay-5">
+        <div class="tech-icon" style="font-size:16px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <span>Claude AI</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Getting Started ──────────────────────────────────── -->
+  <section id="start">
+    <div class="section-header">
+      <div class="label fade-up">Get Started</div>
+      <h2 class="fade-up delay-1">Up and running in minutes</h2>
+      <p class="fade-up delay-2">Clone, build, and launch — it's that simple.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step fade-up">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Clone the repository</h3>
+          <div class="code-block">
+            <span class="cmd">git clone</span> https://github.com/gjwroot/taskpilot.git<br>
+            <span class="cmd">cd</span> taskpilot
+          </div>
+        </div>
+      </div>
+
+      <div class="step fade-up delay-1">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Install dependencies</h3>
+          <p>Make sure you have Go 1.25+, Node.js 18+, and Wails v3 installed.</p>
+          <div class="code-block">
+            <span class="cmd">go install</span> github.com/wailsapp/wails/v3/cmd/wails3@latest<br>
+            <span class="cmd">cd</span> frontend && <span class="cmd">npm install</span> && <span class="cmd">cd</span> ..
+          </div>
+        </div>
+      </div>
+
+      <div class="step fade-up delay-2">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Run in development mode</h3>
+          <div class="code-block">
+            <span class="cmd">wails3 dev</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ───────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-links">
+      <a href="https://github.com/gjwroot/taskpilot">GitHub</a>
+      <a href="https://github.com/gjwroot/taskpilot/issues">Issues</a>
+      <a href="https://github.com/gjwroot/taskpilot/releases">Releases</a>
+    </div>
+    <p>MIT License &middot; Built with Wails, Go, React &amp; Claude AI</p>
+  </footer>
+
+  <!-- ── Scroll animation ─────────────────────────────────── -->
+  <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
