@@ -1,5 +1,7 @@
 build/bin
+bin/
 node_modules
 frontend/dist
+frontend/frontend/
 .omc/
 .claude/

@@ -12,12 +12,14 @@ import TaskList from './components/TaskList'
 import TodayView from './components/TodayView'
 import SettingsView from './components/SettingsView'
 import LogsView from './components/LogsView'
+import MeetingList from './components/MeetingList'
+import MeetingDetail from './components/MeetingDetail'
 import ChatPanel from './components/ChatPanel'
 import CommandPalette from './components/CommandPalette'
 import QuickAddView from './views/QuickAddView'
 
 function App() {
-  const { currentView, showChatPanel, setProjects, setTasks } = useAppStore()
+  const { currentView, showChatPanel, selectedMeetingId, setProjects, setTasks } = useAppStore()
   const [route, setRoute] = useState(window.location.hash)
 
   // Subscribe to cross-window events.
@@ -111,6 +113,30 @@ function App() {
               className="flex-1 overflow-hidden flex flex-col"
             >
               <LogsView />
+            </motion.div>
+          )}
+          {currentView === 'meetings' && (
+            <motion.div
+              key="meetings"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-1 overflow-hidden flex flex-col"
+            >
+              <MeetingList />
+            </motion.div>
+          )}
+          {currentView === 'meeting-detail' && selectedMeetingId && (
+            <motion.div
+              key="meeting-detail"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-1 overflow-hidden flex flex-col"
+            >
+              <MeetingDetail meetingId={selectedMeetingId} />
             </motion.div>
           )}
         </AnimatePresence>

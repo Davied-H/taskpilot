@@ -16,6 +16,8 @@ type AppCore struct {
 	TaskStore    *store.TaskStore
 	ConfigStore  *store.ConfigStore
 	ChatStore    *store.ChatStore
+	SyncStore    *store.SyncStore
+	MeetingStore *store.MeetingStore
 	DataDir      string
 }
 
@@ -47,6 +49,8 @@ func NewAppCore() (*AppCore, error) {
 		TaskStore:    store.NewTaskStore(db),
 		ConfigStore:  store.NewConfigStore(db),
 		ChatStore:    store.NewChatStore(db),
+		SyncStore:    store.NewSyncStore(db),
+		MeetingStore: store.NewMeetingStore(db),
 		DataDir:      dataDir,
 	}, nil
 }

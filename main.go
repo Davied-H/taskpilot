@@ -34,6 +34,8 @@ func main() {
 		OnConfigChanged: aiSvc.ReloadClient,
 	}
 	logSvc := &services.LogService{LogDir: filepath.Join(appCore.DataDir, "logs")}
+	feishuSvc := &services.FeishuService{Core: appCore, AIService: aiSvc}
+	meetingSvc := &services.MeetingService{Core: appCore, AIService: aiSvc}
 
 	// Initialize AI client from stored config.
 	aiSvc.ReloadClient()
@@ -57,6 +59,8 @@ func main() {
 			application.NewService(aiSvc),
 			application.NewService(configSvc),
 			application.NewService(logSvc),
+			application.NewService(feishuSvc),
+			application.NewService(meetingSvc),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -127,6 +131,7 @@ func main() {
 	// macOS 必须：添加标准应用菜单，否则菜单栏无法正确注册，所有快捷键失效。
 	if runtime.GOOS == "darwin" {
 		appMenu.AddRole(application.AppMenu)
+		appMenu.AddRole(application.EditMenu)
 	}
 
 	fileMenu := appMenu.AddSubmenu("文件")
@@ -214,6 +219,9 @@ func main() {
 
 	// On macOS, set activation policy to accessory if we want tray-only mode.
 	_ = runtime.GOOS
+
+	// ── 飞书同步自动启动 ──────────────────────────────────────────────────
+	go feishuSvc.AutoStart()
 
 	// ── Run ─────────────────────────────────────────────────────────────
 	if err := app.Run(); err != nil {

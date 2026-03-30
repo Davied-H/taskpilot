@@ -195,3 +195,151 @@ export async function getShortcutConfig(): Promise<string> {
 export async function saveShortcutConfig(json: string): Promise<void> {
   await ConfigService.SetConfig('keyboard_shortcuts', json)
 }
+
+// ---- 会议相关 ----
+
+import { MeetingService } from '../../bindings/taskpilot/services'
+import type { Meeting } from '../stores/appStore'
+
+export interface MeetingSpeaker {
+  id: string
+  meetingId: string
+  speakerLabel: string
+  displayName: string
+  color: string
+}
+
+export interface TranscriptSegment {
+  id: string
+  meetingId: string
+  speakerId: string
+  startTime: number
+  endTime: number
+  text: string
+}
+
+export interface RecordingState {
+  meetingId: string
+  status: string
+  duration: number
+}
+
+export async function getMeetings(): Promise<Meeting[]> {
+  return await MeetingService.GetMeetings() || []
+}
+
+export async function getMeeting(id: string): Promise<Meeting> {
+  const result = await MeetingService.GetMeeting(id)
+  return result!
+}
+
+export async function createMeeting(title: string, projectId: string): Promise<Meeting> {
+  const result = await MeetingService.CreateMeeting(title, projectId)
+  return result!
+}
+
+export async function deleteMeeting(id: string): Promise<void> {
+  await MeetingService.DeleteMeeting(id)
+}
+
+export async function startRecording(title: string, projectId: string): Promise<Meeting> {
+  const result = await MeetingService.StartRecording(title, projectId)
+  return result!
+}
+
+export async function stopRecording(): Promise<Meeting> {
+  const result = await MeetingService.StopRecording()
+  return result!
+}
+
+export async function getRecordingState(): Promise<RecordingState> {
+  return await MeetingService.GetRecordingState()
+}
+
+export async function getSpeakers(meetingId: string): Promise<MeetingSpeaker[]> {
+  return await MeetingService.GetSpeakers(meetingId) || []
+}
+
+export async function renameSpeaker(speakerId: string, displayName: string): Promise<void> {
+  await MeetingService.RenameSpeaker(speakerId, displayName)
+}
+
+export async function mergeSpeakers(toId: string, fromId: string): Promise<void> {
+  await MeetingService.MergeSpeakers(toId, fromId)
+}
+
+export async function getSegments(meetingId: string): Promise<TranscriptSegment[]> {
+  return await MeetingService.GetSegments(meetingId) || []
+}
+
+// ---- 飞书相关 ----
+
+import { FeishuService } from '../../bindings/taskpilot/services'
+
+export interface FeishuConfig {
+  appId: string
+  appSecret: string
+  bitableApp: string
+  bitableTable: string
+  syncEnabled: boolean
+  syncInterval: number
+}
+
+export interface SyncStatus {
+  running: boolean
+  lastSyncAt: string
+  lastError: string
+  syncedCount: number
+  pushedCount: number
+  pulledCount: number
+}
+
+export async function getFeishuConfig(): Promise<FeishuConfig> {
+  const result = await FeishuService.GetFeishuConfig()
+  return result!
+}
+
+export async function saveFeishuConfig(cfg: FeishuConfig): Promise<void> {
+  await FeishuService.SaveFeishuConfig(cfg)
+}
+
+export async function testFeishuConnection(): Promise<void> {
+  await FeishuService.TestConnection()
+}
+
+export async function startFeishuSync(): Promise<void> {
+  await FeishuService.StartSync()
+}
+
+export async function stopFeishuSync(): Promise<void> {
+  await FeishuService.StopSync()
+}
+
+export async function syncFeishuNow(): Promise<void> {
+  await FeishuService.SyncNow()
+}
+
+export async function getFeishuSyncStatus(): Promise<SyncStatus> {
+  return await FeishuService.GetSyncStatus()
+}
+
+// ---- 飞书 Bot ----
+
+export interface BotConfig {
+  botEnabled: boolean
+  botChatId: string
+  notifyOnChange: boolean
+}
+
+export async function getBotConfig(): Promise<BotConfig> {
+  const result = await FeishuService.GetBotConfig()
+  return result!
+}
+
+export async function saveBotConfig(cfg: BotConfig): Promise<void> {
+  await FeishuService.SaveBotConfig(cfg)
+}
+
+export async function sendBotMessage(text: string): Promise<void> {
+  await FeishuService.SendBotMessage(text)
+}

@@ -5,6 +5,126 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+/**
+ * Meeting 会议
+ */
+export class Meeting {
+    "id": string;
+    "projectId": string;
+    "title": string;
+
+    /**
+     * recording, transcribing, diarizing, analyzing, done, error
+     */
+    "status": string;
+    "audioPath": string;
+    "transcriptPath": string;
+    "summary": string;
+
+    /**
+     * 录制时长（秒）
+     */
+    "duration": number;
+    "createdAt": string;
+    "updatedAt": string;
+
+    /** Creates a new Meeting instance. */
+    constructor($$source: Partial<Meeting> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("projectId" in $$source)) {
+            this["projectId"] = "";
+        }
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("audioPath" in $$source)) {
+            this["audioPath"] = "";
+        }
+        if (!("transcriptPath" in $$source)) {
+            this["transcriptPath"] = "";
+        }
+        if (!("summary" in $$source)) {
+            this["summary"] = "";
+        }
+        if (!("duration" in $$source)) {
+            this["duration"] = 0;
+        }
+        if (!("createdAt" in $$source)) {
+            this["createdAt"] = "";
+        }
+        if (!("updatedAt" in $$source)) {
+            this["updatedAt"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Meeting instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Meeting {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Meeting($$parsedSource as Partial<Meeting>);
+    }
+}
+
+/**
+ * MeetingSpeaker 说话人
+ */
+export class MeetingSpeaker {
+    "id": string;
+    "meetingId": string;
+
+    /**
+     * 自动编号 "Speaker 1"
+     */
+    "speakerLabel": string;
+
+    /**
+     * 用户命名 "张明"
+     */
+    "displayName": string;
+
+    /**
+     * UI 标识色 "#60a5fa"
+     */
+    "color": string;
+
+    /** Creates a new MeetingSpeaker instance. */
+    constructor($$source: Partial<MeetingSpeaker> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("meetingId" in $$source)) {
+            this["meetingId"] = "";
+        }
+        if (!("speakerLabel" in $$source)) {
+            this["speakerLabel"] = "";
+        }
+        if (!("displayName" in $$source)) {
+            this["displayName"] = "";
+        }
+        if (!("color" in $$source)) {
+            this["color"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MeetingSpeaker instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MeetingSpeaker {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new MeetingSpeaker($$parsedSource as Partial<MeetingSpeaker>);
+    }
+}
+
 export class Project {
     "id": string;
     "name": string;
@@ -116,5 +236,57 @@ export class Task {
     static createFrom($$source: any = {}): Task {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Task($$parsedSource as Partial<Task>);
+    }
+}
+
+/**
+ * TranscriptSegment 转录片段
+ */
+export class TranscriptSegment {
+    "id": string;
+    "meetingId": string;
+    "speakerId": string;
+
+    /**
+     * 秒
+     */
+    "startTime": number;
+
+    /**
+     * 秒
+     */
+    "endTime": number;
+    "text": string;
+
+    /** Creates a new TranscriptSegment instance. */
+    constructor($$source: Partial<TranscriptSegment> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("meetingId" in $$source)) {
+            this["meetingId"] = "";
+        }
+        if (!("speakerId" in $$source)) {
+            this["speakerId"] = "";
+        }
+        if (!("startTime" in $$source)) {
+            this["startTime"] = 0;
+        }
+        if (!("endTime" in $$source)) {
+            this["endTime"] = 0;
+        }
+        if (!("text" in $$source)) {
+            this["text"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TranscriptSegment instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TranscriptSegment {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TranscriptSegment($$parsedSource as Partial<TranscriptSegment>);
     }
 }
