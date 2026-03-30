@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'motion/react'
-import { Calendar, Plus, Settings, MessageSquare, FolderOpen, FileText, Pencil } from 'lucide-react'
+import { Calendar, Plus, Settings, MessageSquare, FolderOpen, FileText, Pencil, Mic } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import type { Project } from '../stores/appStore'
 import { updateProject } from '../hooks/useWails'
@@ -93,6 +93,30 @@ export default function Sidebar() {
             )}
             <Calendar size={16} className="relative z-10" />
             <span className="relative z-10">今日</span>
+          </motion.button>
+        </nav>
+
+        {/* 会议 */}
+        <nav className="px-3 pt-1">
+          <motion.button
+            whileHover={{ x: 2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setCurrentView('meetings')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors relative cursor-pointer ${
+              currentView === 'meetings' || currentView === 'meeting-detail'
+                ? 'text-white'
+                : 'text-gray-400 hover:text-white hover:bg-white/[0.05]'
+            }`}
+          >
+            {(currentView === 'meetings' || currentView === 'meeting-detail') && (
+              <motion.div
+                layoutId="nav-active"
+                className="absolute inset-0 bg-white/[0.1] rounded-lg"
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
+              />
+            )}
+            <Mic size={16} className="relative z-10" />
+            <span className="relative z-10">会议</span>
           </motion.button>
         </nav>
 

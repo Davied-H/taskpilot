@@ -38,6 +38,38 @@ export class AIConfig {
 }
 
 /**
+ * BotConfig 飞书 Bot 配置
+ */
+export class BotConfig {
+    "botEnabled": boolean;
+    "botChatId": string;
+    "notifyOnChange": boolean;
+
+    /** Creates a new BotConfig instance. */
+    constructor($$source: Partial<BotConfig> = {}) {
+        if (!("botEnabled" in $$source)) {
+            this["botEnabled"] = false;
+        }
+        if (!("botChatId" in $$source)) {
+            this["botChatId"] = "";
+        }
+        if (!("notifyOnChange" in $$source)) {
+            this["notifyOnChange"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new BotConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): BotConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new BotConfig($$parsedSource as Partial<BotConfig>);
+    }
+}
+
+/**
  * ChatResponse is returned from ChatWithAI to the frontend.
  */
 export class ChatResponse {
@@ -70,6 +102,54 @@ export class ChatResponse {
 }
 
 /**
+ * FeishuConfig 飞书配置
+ */
+export class FeishuConfig {
+    "appId": string;
+    "appSecret": string;
+    "bitableApp": string;
+    "bitableTable": string;
+    "syncEnabled": boolean;
+
+    /**
+     * 分钟
+     */
+    "syncInterval": number;
+
+    /** Creates a new FeishuConfig instance. */
+    constructor($$source: Partial<FeishuConfig> = {}) {
+        if (!("appId" in $$source)) {
+            this["appId"] = "";
+        }
+        if (!("appSecret" in $$source)) {
+            this["appSecret"] = "";
+        }
+        if (!("bitableApp" in $$source)) {
+            this["bitableApp"] = "";
+        }
+        if (!("bitableTable" in $$source)) {
+            this["bitableTable"] = "";
+        }
+        if (!("syncEnabled" in $$source)) {
+            this["syncEnabled"] = false;
+        }
+        if (!("syncInterval" in $$source)) {
+            this["syncInterval"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FeishuConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FeishuConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FeishuConfig($$parsedSource as Partial<FeishuConfig>);
+    }
+}
+
+/**
  * LogFileInfo describes a single log file.
  */
 export class LogFileInfo {
@@ -98,6 +178,86 @@ export class LogFileInfo {
     static createFrom($$source: any = {}): LogFileInfo {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new LogFileInfo($$parsedSource as Partial<LogFileInfo>);
+    }
+}
+
+/**
+ * RecordingState 录制状态
+ */
+export class RecordingState {
+    "meetingId": string;
+
+    /**
+     * idle, recording, paused
+     */
+    "status": string;
+    "duration": number;
+
+    /** Creates a new RecordingState instance. */
+    constructor($$source: Partial<RecordingState> = {}) {
+        if (!("meetingId" in $$source)) {
+            this["meetingId"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("duration" in $$source)) {
+            this["duration"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RecordingState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RecordingState {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RecordingState($$parsedSource as Partial<RecordingState>);
+    }
+}
+
+/**
+ * SyncStatus 同步状态
+ */
+export class SyncStatus {
+    "running": boolean;
+    "lastSyncAt": string;
+    "lastError": string;
+    "syncedCount": number;
+    "pushedCount": number;
+    "pulledCount": number;
+
+    /** Creates a new SyncStatus instance. */
+    constructor($$source: Partial<SyncStatus> = {}) {
+        if (!("running" in $$source)) {
+            this["running"] = false;
+        }
+        if (!("lastSyncAt" in $$source)) {
+            this["lastSyncAt"] = "";
+        }
+        if (!("lastError" in $$source)) {
+            this["lastError"] = "";
+        }
+        if (!("syncedCount" in $$source)) {
+            this["syncedCount"] = 0;
+        }
+        if (!("pushedCount" in $$source)) {
+            this["pushedCount"] = 0;
+        }
+        if (!("pulledCount" in $$source)) {
+            this["pulledCount"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SyncStatus instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SyncStatus {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SyncStatus($$parsedSource as Partial<SyncStatus>);
     }
 }
 

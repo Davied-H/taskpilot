@@ -24,3 +24,112 @@ export class ClaudeClient {
         return new ClaudeClient($$parsedSource as Partial<ClaudeClient>);
     }
 }
+
+/**
+ * MeetingAnalysis 会议分析结果
+ */
+export class MeetingAnalysis {
+    "summary": string;
+    "keyPoints": string[];
+    "pendingItems": string[];
+    "actionItems": string[];
+    "tasks": SuggestedTask[];
+
+    /** Creates a new MeetingAnalysis instance. */
+    constructor($$source: Partial<MeetingAnalysis> = {}) {
+        if (!("summary" in $$source)) {
+            this["summary"] = "";
+        }
+        if (!("keyPoints" in $$source)) {
+            this["keyPoints"] = [];
+        }
+        if (!("pendingItems" in $$source)) {
+            this["pendingItems"] = [];
+        }
+        if (!("actionItems" in $$source)) {
+            this["actionItems"] = [];
+        }
+        if (!("tasks" in $$source)) {
+            this["tasks"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MeetingAnalysis instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MeetingAnalysis {
+        const $$createField1_0 = $$createType0;
+        const $$createField2_0 = $$createType0;
+        const $$createField3_0 = $$createType0;
+        const $$createField4_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("keyPoints" in $$parsedSource) {
+            $$parsedSource["keyPoints"] = $$createField1_0($$parsedSource["keyPoints"]);
+        }
+        if ("pendingItems" in $$parsedSource) {
+            $$parsedSource["pendingItems"] = $$createField2_0($$parsedSource["pendingItems"]);
+        }
+        if ("actionItems" in $$parsedSource) {
+            $$parsedSource["actionItems"] = $$createField3_0($$parsedSource["actionItems"]);
+        }
+        if ("tasks" in $$parsedSource) {
+            $$parsedSource["tasks"] = $$createField4_0($$parsedSource["tasks"]);
+        }
+        return new MeetingAnalysis($$parsedSource as Partial<MeetingAnalysis>);
+    }
+}
+
+/**
+ * SuggestedTask AI 建议的任务
+ */
+export class SuggestedTask {
+    "title": string;
+    "description": string;
+    "priority": number;
+    "assignee": string;
+    "dueDate": string;
+    "tags": string[];
+
+    /** Creates a new SuggestedTask instance. */
+    constructor($$source: Partial<SuggestedTask> = {}) {
+        if (!("title" in $$source)) {
+            this["title"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+        if (!("priority" in $$source)) {
+            this["priority"] = 0;
+        }
+        if (!("assignee" in $$source)) {
+            this["assignee"] = "";
+        }
+        if (!("dueDate" in $$source)) {
+            this["dueDate"] = "";
+        }
+        if (!("tags" in $$source)) {
+            this["tags"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SuggestedTask instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SuggestedTask {
+        const $$createField5_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("tags" in $$parsedSource) {
+            $$parsedSource["tags"] = $$createField5_0($$parsedSource["tags"]);
+        }
+        return new SuggestedTask($$parsedSource as Partial<SuggestedTask>);
+    }
+}
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = SuggestedTask.createFrom;
+const $$createType2 = $Create.Array($$createType1);

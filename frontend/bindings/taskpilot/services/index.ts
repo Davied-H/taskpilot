@@ -3,20 +3,28 @@
 
 import * as AIService from "./aiservice.js";
 import * as ConfigService from "./configservice.js";
+import * as FeishuService from "./feishuservice.js";
 import * as LogService from "./logservice.js";
+import * as MeetingService from "./meetingservice.js";
 import * as ProjectService from "./projectservice.js";
 import * as TaskService from "./taskservice.js";
 export {
     AIService,
     ConfigService,
+    FeishuService,
     LogService,
+    MeetingService,
     ProjectService,
     TaskService
 };
 
 export {
     AIConfig,
+    BotConfig,
     ChatResponse,
+    FeishuConfig,
     LogFileInfo,
+    RecordingState,
+    SyncStatus,
     ToolCallResult
 } from "./models.js";

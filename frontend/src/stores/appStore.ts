@@ -22,6 +22,19 @@ export interface Task {
   updatedAt: string
 }
 
+export interface Meeting {
+  id: string
+  projectId: string
+  title: string
+  status: string // recording, transcribing, diarizing, analyzing, done, error
+  audioPath: string
+  transcriptPath: string
+  summary: string
+  duration: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -36,8 +49,11 @@ interface AppState {
   selectedProjectId: string | null
   // 任务
   tasks: Task[]
+  // 会议
+  meetings: Meeting[]
+  selectedMeetingId: string | null
   // 视图
-  currentView: 'project' | 'today' | 'settings' | 'logs'
+  currentView: 'project' | 'today' | 'settings' | 'logs' | 'meetings' | 'meeting-detail'
   // AI 面板
   showChatPanel: boolean
   chatMessages: ChatMessage[]
@@ -45,7 +61,9 @@ interface AppState {
   setProjects: (projects: Project[]) => void
   setSelectedProjectId: (id: string | null) => void
   setTasks: (tasks: Task[]) => void
-  setCurrentView: (view: 'project' | 'today' | 'settings' | 'logs') => void
+  setMeetings: (meetings: Meeting[]) => void
+  setSelectedMeetingId: (id: string | null) => void
+  setCurrentView: (view: 'project' | 'today' | 'settings' | 'logs' | 'meetings' | 'meeting-detail') => void
   toggleChatPanel: () => void
   addChatMessage: (msg: ChatMessage) => void
   clearChatMessages: () => void
@@ -56,6 +74,8 @@ export const useAppStore = create<AppState>((set) => ({
   projects: [],
   selectedProjectId: null,
   tasks: [],
+  meetings: [],
+  selectedMeetingId: null,
   currentView: 'today',
   showChatPanel: false,
   chatMessages: [],
@@ -63,6 +83,8 @@ export const useAppStore = create<AppState>((set) => ({
   setProjects: (projects) => set({ projects }),
   setSelectedProjectId: (id) => set({ selectedProjectId: id, currentView: 'project' }),
   setTasks: (tasks) => set({ tasks }),
+  setMeetings: (meetings) => set({ meetings }),
+  setSelectedMeetingId: (id) => set({ selectedMeetingId: id, currentView: 'meeting-detail' }),
   setCurrentView: (view) => set({ currentView: view }),
   toggleChatPanel: () => set((state) => ({ showChatPanel: !state.showChatPanel })),
   addChatMessage: (msg) => set((state) => ({ chatMessages: [...state.chatMessages, msg] })),

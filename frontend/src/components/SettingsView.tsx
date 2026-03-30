@@ -27,6 +27,8 @@ const FiTarget = _FiTarget as unknown as FiIcon
 const FiTrash2 = _FiTrash2 as unknown as FiIcon
 import { getAIConfig, saveAIConfig, testAIConnection } from '../hooks/useWails'
 import ShortcutSettings from './ShortcutSettings'
+import FeishuSettings from './FeishuSettings'
+import MeetingSettings from './MeetingSettings'
 
 const MODEL_OPTIONS = [
   { value: '', label: '默认 (Claude Sonnet)' },
@@ -307,12 +309,18 @@ export default function SettingsView() {
             </div>
           </motion.section>
 
+          {/* 飞书集成 */}
+          <FeishuSettings sectionIndex={2} />
+
+          {/* 会议录音 */}
+          <MeetingSettings sectionIndex={3} />
+
           {/* 键盘快捷键 */}
-          <ShortcutSettings sectionIndex={2} />
+          <ShortcutSettings sectionIndex={4} />
 
           {/* 关于 */}
           <motion.section
-            custom={3}
+            custom={5}
             initial="hidden"
             animate="visible"
             variants={sectionVariants}

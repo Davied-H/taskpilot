@@ -55,7 +55,7 @@ export function GetAIClient(): $CancellablePromise<ai$0.ClaudeClient | null> {
 /**
  * GetChatHistory retrieves persisted chat messages for a project.
  */
-export function GetChatHistory(projectID: string, limit: number, offset: number): $CancellablePromise<{ [_: string]: any }[]> {
+export function GetChatHistory(projectID: string, limit: number, offset: number): $CancellablePromise<{ [_ in string]?: any }[]> {
     return $Call.ByID(1131401312, projectID, limit, offset).then(($result: any) => {
         return $$createType5($result);
     });

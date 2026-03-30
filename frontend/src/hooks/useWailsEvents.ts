@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Events } from '@wailsio/runtime'
 import { useAppStore } from '../stores/appStore'
-import { getProjects, getAllTasks } from './useWails'
+import { getProjects, getAllTasks, getMeetings } from './useWails'
 
 /**
  * Subscribes to backend events for cross-window state synchronization.
@@ -9,7 +9,7 @@ import { getProjects, getAllTasks } from './useWails'
  * and refresh the Zustand store accordingly.
  */
 export function useWailsEvents() {
-  const { setProjects, setTasks } = useAppStore()
+  const { setProjects, setTasks, setMeetings } = useAppStore()
 
   useEffect(() => {
     const unsubProject = Events.On('project:changed', async () => {
@@ -27,10 +27,16 @@ export function useWailsEvents() {
       setTasks(tasks || [])
     })
 
+    const unsubMeeting = Events.On('meeting:changed', async () => {
+      const meetings = await getMeetings()
+      setMeetings(meetings || [])
+    })
+
     return () => {
       if (unsubProject) unsubProject()
       if (unsubTask) unsubTask()
       if (unsubTags) unsubTags()
+      if (unsubMeeting) unsubMeeting()
     }
-  }, [setProjects, setTasks])
+  }, [setProjects, setTasks, setMeetings])
 }
